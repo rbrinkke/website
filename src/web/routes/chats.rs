@@ -227,3 +227,195 @@ pub async fn chat_detail_handler(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =========================================================================
+    // format_last_message_at() tests
+    // =========================================================================
+
+    #[test]
+    fn format_rfc3339_timestamp() {
+        assert_eq!(
+            format_last_message_at(Some("2025-12-17T11:33:44Z".into())),
+            Some("11:33".into())
+        );
+    }
+
+    #[test]
+    fn format_rfc3339_with_timezone() {
+        assert_eq!(
+            format_last_message_at(Some("2025-12-17T14:05:00+01:00".into())),
+            Some("14:05".into())
+        );
+    }
+
+    #[test]
+    fn format_sqlite_timestamp() {
+        assert_eq!(
+            format_last_message_at(Some("2025-12-17 11:33:44".into())),
+            Some("11:33".into())
+        );
+    }
+
+    #[test]
+    fn format_sqlite_with_millis() {
+        assert_eq!(
+            format_last_message_at(Some("2025-12-17 09:00:00.123".into())),
+            Some("09:00".into())
+        );
+    }
+
+    #[test]
+    fn format_empty_string_returns_none() {
+        assert_eq!(format_last_message_at(Some("".into())), None);
+    }
+
+    #[test]
+    fn format_whitespace_only_returns_none() {
+        assert_eq!(format_last_message_at(Some("   ".into())), None);
+    }
+
+    #[test]
+    fn format_none_returns_none() {
+        assert_eq!(format_last_message_at(None), None);
+    }
+
+    #[test]
+    fn format_time_only_string() {
+        // Edge case: just time without date
+        assert_eq!(
+            format_last_message_at(Some("14:30:00".into())),
+            Some("14:30".into())
+        );
+    }
+
+    #[test]
+    fn format_short_string() {
+        // Very short input
+        assert_eq!(
+            format_last_message_at(Some("12:3".into())),
+            Some("12:3".into())
+        );
+    }
+
+    // =========================================================================
+    // normalize_preview() tests
+    // =========================================================================
+
+    #[test]
+    fn normalize_simple_text() {
+        assert_eq!(
+            normalize_preview(Some("Hello world".into())),
+            Some("Hello world".into())
+        );
+    }
+
+    #[test]
+    fn normalize_replaces_newlines_with_spaces() {
+        assert_eq!(
+            normalize_preview(Some("line1\nline2\r\nline3".into())),
+            Some("line1 line2  line3".into())
+        );
+    }
+
+    #[test]
+    fn normalize_trims_whitespace() {
+        assert_eq!(
+            normalize_preview(Some("  hello world  ".into())),
+            Some("hello world".into())
+        );
+    }
+
+    #[test]
+    fn normalize_empty_string_returns_none() {
+        assert_eq!(normalize_preview(Some("".into())), None);
+    }
+
+    #[test]
+    fn normalize_whitespace_only_returns_none() {
+        assert_eq!(normalize_preview(Some("   \n\r  ".into())), None);
+    }
+
+    #[test]
+    fn normalize_none_returns_none() {
+        assert_eq!(normalize_preview(None), None);
+    }
+
+    #[test]
+    fn normalize_truncates_at_72_chars() {
+        let long = "a".repeat(100);
+        let result = normalize_preview(Some(long));
+        assert!(result.is_some());
+        let result = result.unwrap();
+        // 72 chars + ellipsis = 73 graphemes
+        assert_eq!(result.chars().count(), 73);
+        assert!(result.ends_with('…'));
+    }
+
+    #[test]
+    fn normalize_exactly_72_chars_no_truncation() {
+        let exact = "b".repeat(72);
+        let result = normalize_preview(Some(exact.clone()));
+        assert_eq!(result, Some(exact));
+    }
+
+    #[test]
+    fn normalize_73_chars_truncates() {
+        let over = "c".repeat(73);
+        let result = normalize_preview(Some(over));
+        assert!(result.is_some());
+        let result = result.unwrap();
+        assert_eq!(result.chars().count(), 73); // 72 + ellipsis
+        assert!(result.ends_with('…'));
+    }
+
+    #[test]
+    fn normalize_handles_unicode_graphemes() {
+        // Each emoji is one grapheme but multiple bytes
+        let emojis = "🎉".repeat(80);
+        let result = normalize_preview(Some(emojis));
+        assert!(result.is_some());
+        let result = result.unwrap();
+        // Should be 72 emojis + ellipsis
+        assert_eq!(result.chars().count(), 73);
+        assert!(result.ends_with('…'));
+    }
+
+    #[test]
+    fn normalize_mixed_unicode_and_ascii() {
+        let mixed = format!("{}abc", "日本語".repeat(25)); // 75 chars + "abc"
+        let result = normalize_preview(Some(mixed));
+        assert!(result.is_some());
+        let result = result.unwrap();
+        assert!(result.ends_with('…'));
+        assert!(result.chars().count() <= 73);
+    }
+
+    // =========================================================================
+    // normalize_preview_no_truncate() tests
+    // =========================================================================
+
+    #[test]
+    fn normalize_no_truncate_keeps_long_text() {
+        let long = "x".repeat(200);
+        let result = normalize_preview_no_truncate(Some(long.clone()));
+        assert_eq!(result, Some(long));
+    }
+
+    #[test]
+    fn normalize_no_truncate_still_replaces_newlines() {
+        assert_eq!(
+            normalize_preview_no_truncate(Some("a\nb\nc".into())),
+            Some("a b c".into())
+        );
+    }
+
+    #[test]
+    fn normalize_no_truncate_empty_returns_none() {
+        assert_eq!(normalize_preview_no_truncate(Some("".into())), None);
+        assert_eq!(normalize_preview_no_truncate(None), None);
+    }
+}
