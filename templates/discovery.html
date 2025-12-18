@@ -1,0 +1,672 @@
+{% extends "layout.html" %}
+
+{% block title %}Discovery - GoAmet{% endblock %}
+
+{% block content %}
+    <style>
+        body,
+        .app-container {
+            background: #0b1220 !important;
+        }
+    </style>
+    <div class="min-h-screen bg-goamet-navy">
+        <div class="pointer-events-none fixed inset-0">
+            <div class="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-goamet-blue/10 blur-3xl"></div>
+            <div class="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-goamet-pink/10 blur-3xl"></div>
+        </div>
+
+        <header class="sticky top-0 z-50" style="background:#0B1220; border-bottom: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 26px rgba(0,0,0,0.30);">
+            <div class="px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="relative h-8 w-8 rounded-2xl bg-gradient-to-br from-goamet-blue to-goamet-blue/60 shadow-sm">
+                        <div class="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-goamet-pink shadow"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-white font-extrabold">G</div>
+                    </div>
+                    <div>
+                        <div class="text-sm font-black tracking-wide text-white">Discovery</div>
+                        <div class="text-[11px] font-semibold text-white/55">Klik op een kaart voor info</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        id="toggle-filters"
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-2xl h-11 w-11 bg-goamet-navy border border-white/15 shadow-sm text-white"
+                        title="Filters"
+                        aria-label="Filters"
+                        aria-expanded="false"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                            <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"></path>
+                        </svg>
+                    </button>
+                    <a
+                        href="/discovery"
+                        class="inline-flex items-center justify-center rounded-2xl h-11 w-11 bg-goamet-navy border border-white/15 shadow-sm text-white"
+                        title="Reset filters"
+                        aria-label="Reset filters"
+                    >
+                        ↺
+                    </a>
+                </div>
+            </div>
+
+            <div
+                id="discovery-filters-shell"
+                class="px-4 pb-4 overflow-hidden will-change-[max-height,opacity,transform] transition-[max-height,opacity,transform] duration-200 ease-out max-h-0 opacity-0 -translate-y-2 pointer-events-none"
+            >
+                <form
+                    class="grid gap-3 rounded-[28px] bg-goamet-navy shadow-glow border border-white/10 p-4"
+                    id="discovery-filters"
+                    method="get"
+                    action="/discovery"
+                >
+                    <div class="grid gap-1">
+                        <label for="filter-search" class="text-[11px] font-extrabold text-white/60">Zoeken</label>
+                        <input
+                            class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-semibold text-white placeholder:text-white/35 shadow-sm"
+                            type="search"
+                            id="filter-search"
+                            name="q"
+                            placeholder="Naam of stad"
+                            autocomplete="off"
+                            value="{{ filters.search_query }}"
+                        >
+                    </div>
+
+	                    <div class="grid grid-cols-2 gap-3">
+	                        <div class="grid gap-1">
+	                            <label for="filter-gender" class="text-[11px] font-extrabold text-white/60">Geslacht</label>
+	                            <select
+	                                class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-semibold text-white shadow-sm"
+	                                id="filter-gender"
+	                                name="gender"
+	                            >
+                                <option value="">Alle</option>
+                                <option value="male" {% if filters.gender_value == "male" %}selected{% endif %}>Man</option>
+                                <option value="female" {% if filters.gender_value == "female" %}selected{% endif %}>Vrouw</option>
+                                <option value="non_binary" {% if filters.gender_value == "non_binary" %}selected{% endif %}>Non-binary</option>
+                            </select>
+                        </div>
+
+	                        <div class="grid gap-1">
+	                            <label for="filter-radius" class="text-[11px] font-extrabold text-white/60">Afstand (km)</label>
+	                            <input
+	                                class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-semibold text-white placeholder:text-white/35 shadow-sm"
+	                                type="number"
+	                                id="filter-radius"
+	                                name="radius_km"
+                                min="1"
+                                max="200"
+                                step="1"
+                                value="{{ filters.radius_km }}"
+                                inputmode="numeric"
+                                placeholder="25"
+                                title="Afstand (km) — wijzigt server-side resultaten"
+                            >
+                        </div>
+                    </div>
+
+	                    <div class="grid gap-1">
+	                        <label for="filter-min-age" class="text-[11px] font-extrabold text-white/60">Leeftijd (jaar)</label>
+	                        <div class="flex items-center gap-2" role="group" aria-label="Leeftijd range">
+	                            <input
+	                                class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-semibold text-white placeholder:text-white/35 shadow-sm"
+	                                type="number"
+	                                id="filter-min-age"
+                                name="min_age"
+                                min="18"
+                                max="100"
+                                placeholder="Min (18)"
+                                inputmode="numeric"
+                                aria-label="Min leeftijd"
+                                value="{{ filters.min_age_value }}"
+                            >
+	                            <span class="text-sm font-black text-white/35">–</span>
+	                            <input
+	                                class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-semibold text-white placeholder:text-white/35 shadow-sm"
+	                                type="number"
+	                                id="filter-max-age"
+                                name="max_age"
+                                min="18"
+                                max="100"
+                                placeholder="Max (100)"
+                                inputmode="numeric"
+                                aria-label="Max leeftijd"
+                                value="{{ filters.max_age_value }}"
+                            >
+                        </div>
+                    </div>
+
+                    <input
+                        type="hidden"
+                        id="filter-lat"
+                        name="lat"
+                        value="{% if filters.lat.is_some() %}{{ filters.lat.unwrap() }}{% endif %}"
+                        {% if filters.lat.is_none() %}disabled{% endif %}
+                    >
+                    <input
+                        type="hidden"
+                        id="filter-lon"
+                        name="lon"
+                        value="{% if filters.lon.is_some() %}{{ filters.lon.unwrap() }}{% endif %}"
+                        {% if filters.lon.is_none() %}disabled{% endif %}
+                    >
+                    <input
+                        type="hidden"
+                        id="filter-loc-label"
+                        name="loc_label"
+                        value="{{ filters.location_label.clone().unwrap_or_default() }}"
+                        {% if filters.location_label.is_none() %}disabled{% endif %}
+                    >
+
+	                    <div class="grid gap-2">
+	                        <div class="flex items-center justify-between">
+	                            <label for="location-search" class="text-[11px] font-extrabold text-white/60">Locatie (server-side)</label>
+	                            <button
+	                                type="button"
+	                                id="clear-location"
+	                                class="rounded-2xl px-3 py-2 text-xs font-black border border-white/15 bg-goamet-navy text-white/70 shadow-sm"
+	                            >
+	                                Wis
+	                            </button>
+	                        </div>
+	                        <input
+	                            class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-semibold text-white placeholder:text-white/35 shadow-sm"
+	                            type="search"
+	                            id="location-search"
+                            placeholder="Stad of dorp (min 2 letters)"
+                            value="{{ filters.location_label.clone().unwrap_or_default() }}"
+                            autocomplete="off"
+                        >
+	                        <div
+	                            id="location-suggestions"
+	                            class="hidden max-h-52 overflow-auto rounded-2xl border border-white/15 bg-goamet-navy shadow-lg"
+	                        ></div>
+	                        <div
+	                            id="location-summary"
+	                            class="min-h-[18px] text-[11px] font-extrabold text-white/55"
+	                        >
+                            {% if filters.coord_label.is_some() %}
+                                📍 {{ filters.coord_label.clone().unwrap_or_default() }}
+                            {% endif %}
+                        </div>
+                    </div>
+
+	                    <label class="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-extrabold text-white/80 shadow-sm">
+	                        <input
+	                            type="checkbox"
+                            id="filter-friends-only"
+                            name="friends_only"
+                            value="true"
+                            class="h-5 w-5 accent-[var(--primary)]"
+                            {% if filters.friends_only %}checked{% endif %}
+                        >
+                        Alleen vrienden
+                    </label>
+
+	                    <div class="grid grid-cols-2 gap-2">
+	                        <button class="rounded-2xl px-4 py-3 text-sm font-black bg-goamet-blue text-white shadow-sm" type="submit">Herlaad</button>
+	                        <a class="rounded-2xl px-4 py-3 text-sm font-black bg-goamet-navy border border-white/15 text-white/80 text-center shadow-sm" href="/discovery">Reset</a>
+	                    </div>
+	                </form>
+	            </div>
+	        </header>
+
+	    <!-- Grid -->
+	    <main class="discovery-grid">
+	        {% for user in users %}
+	        <div id="user-card-{{ user.user_id }}" class="user-card-shell">
+	        <div class="user-card group activity-card"
+	             data-is-friend="{{ user.is_friend.unwrap_or(0) }}"
+	             data-gender="{{ user.gender.clone().unwrap_or_default() }}"
+	             data-age="{{ user.age.unwrap_or(0) }}"
+	             data-name="{{ user.name.clone().unwrap_or_default().to_lowercase() }}"
+	             data-city="{{ user.city.clone().unwrap_or_default().to_lowercase() }}">
+	            <button
+	                class="user-card-link absolute inset-0 z-10 bg-transparent border-0 p-0 m-0 appearance-none"
+	                type="button"
+	                data-user-summary-url="/users/{{ user.user_id }}/summary"
+	                data-user-summary-id="user-summary-{{ user.user_id }}"
+	                aria-label="Toon info van {{ user.name.clone().unwrap_or_default() }}"
+	                title="Info"
+	            ></button>
+	            <!-- Image via proxy route met fallback -->
+	            <img src="/images/{{ user.main_photo_url.as_ref().unwrap() }}" alt="{{ user.name.as_ref().unwrap() }}" onerror="this.src='/assets/placeholder.svg'" loading="lazy">
+
+		            <div class="absolute top-2 left-2 right-2 z-20 flex items-start justify-between gap-2">
+		                <div class="flex flex-wrap gap-2">
+	                    {% if user.is_verified.unwrap_or(0) == 1 %}
+	                        <span class="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-2 text-[11px] font-black text-white/85 shadow-sm">
+	                            <span class="h-2 w-2 rounded-full bg-goamet-blue"></span>
+	                            Verified
+	                        </span>
+	                    {% endif %}
+	                    {% if user.is_friend.unwrap_or(0) == 1 %}
+	                        <span class="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-2 text-[11px] font-black text-white/85 shadow-sm">
+	                            <span class="h-2 w-2 rounded-full bg-goamet-pink"></span>
+	                            Vriend
+	                        </span>
+	                    {% endif %}
+		                </div>
+                        <div class="flex items-center gap-2">
+                            {% if user.is_friend.unwrap_or(0) == 1 %}
+                                <button type="button" class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-goamet-blue/20 border border-goamet-blue/30 text-white shadow-sm pointer-events-auto" title="Chat komt eraan" aria-label="Chat" disabled>
+                                    💬
+                                </button>
+                            {% else %}
+                                <form method="post" action="/users/{{ user.user_id }}/friendship" class="pointer-events-auto">
+                                    <input type="hidden" name="action" value="request">
+                                    <input type="hidden" name="return_to" value="/discovery">
+                                    <button type="submit" class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-goamet-pink/20 border border-goamet-pink/30 text-white shadow-sm" title="Vriendschap verzoek" aria-label="Vriendschap verzoek">
+                                        ➕
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+		                {% if user.distance_km.is_some() %}
+		                    <span class="inline-flex items-center rounded-full bg-white/10 border border-white/10 px-3 py-2 text-[11px] font-black text-white/80 shadow-sm">
+		                        {{ "{:.1}"|format(user.distance_km.unwrap_or(0.0)) }} km
+		                    </span>
+		                {% endif %}
+		            </div>
+
+	            <!-- Overlay Info -->
+	            <div class="card-overlay z-20 pointer-events-none">
+	                <div class="user-name">{{ user.name.clone().unwrap_or_default() }}</div>
+	                <div class="user-location">
+	                    <!-- Pink Pin -->
+	                    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path></svg>
+	                    <span>{{ user.city.clone().unwrap_or_default() }}</span>
+	                </div>
+
+	                <!-- Chat Action Button -->
+	                <button class="btn-chat pointer-events-auto z-30" type="button" title="Chat (coming soon)">
+	                     <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+	                </button>
+	            </div>
+	        </div>
+            <div id="user-summary-{{ user.user_id }}" class="user-summary" data-loaded="0" aria-live="polite"></div>
+            </div>
+	        {% endfor %}
+	    </main>
+
+	    <!-- Bottom Nav -->
+	    <nav class="bottom-nav backdrop-blur" style="background: rgba(11,18,32,0.92); border-top: 1px solid rgba(255,255,255,0.10);">
+	        <a href="/discovery" class="nav-item active">
+	            <div class="nav-icon-container">
+	                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+	            </div>
+	            <span>Discovery</span>
+        </a>
+        <a href="/activities" class="nav-item" style="color: rgba(255,255,255,0.70);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>Activiteiten</span>
+        </a>
+            <a href="/chats" class="nav-item" style="color: rgba(255,255,255,0.70);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Chats</span>
+            </a>
+	        <a href="#" class="nav-item" style="color: rgba(255,255,255,0.70);">
+	             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+	            <span>Notifications</span>
+	        </a>
+	    </nav>
+    </div>
+
+	    <script>
+	        (() => {
+	            const filtersForm = document.querySelector('#discovery-filters');
+	            const searchInput = document.querySelector('#location-search');
+	            const suggestionsEl = document.querySelector('#location-suggestions');
+	            const summaryEl = document.querySelector('#location-summary');
+	            const latInput = document.querySelector('#filter-lat');
+	            const lonInput = document.querySelector('#filter-lon');
+	            const labelInput = document.querySelector('#filter-loc-label');
+	            const clearBtn = document.querySelector('#clear-location');
+
+	            let debounceId;
+
+	            if (!filtersForm || !searchInput || !suggestionsEl || !summaryEl) return;
+
+	            function renderSummary(name, lat, lon) {
+	                if (!lat || !lon) {
+	                    summaryEl.textContent = '';
+	                    return;
+	                }
+	                const coord = `${Number(lat).toFixed(4)}, ${Number(lon).toFixed(4)}`;
+	                summaryEl.textContent = `📍 ${name || coord}`;
+	            }
+
+	            function applySelection(item) {
+	                if (latInput) {
+	                    latInput.value = item.latitude;
+	                    latInput.disabled = false;
+	                }
+	                if (lonInput) {
+	                    lonInput.value = item.longitude;
+	                    lonInput.disabled = false;
+	                }
+	                if (labelInput) {
+	                    labelInput.value = item.name || '';
+	                    labelInput.disabled = !(item.name || '').trim().length;
+	                }
+	                searchInput.value = item.name || '';
+	                renderSummary(item.name, item.latitude, item.longitude);
+	                suggestionsEl.innerHTML = '';
+	                suggestionsEl.classList.add('hidden');
+	                if (filtersForm.requestSubmit) {
+	                    filtersForm.requestSubmit();
+	                } else {
+	                    filtersForm.submit();
+	                }
+	            }
+
+            async function fetchLocations(term) {
+                try {
+                    const resp = await fetch(`/api/location/search?q=${encodeURIComponent(term)}`);
+                    if (!resp.ok) return [];
+                    return await resp.json();
+                } catch (_) {
+                    return [];
+                }
+            }
+
+	            function renderSuggestions(items) {
+	                suggestionsEl.innerHTML = '';
+	                if (!items.length) {
+	                    suggestionsEl.classList.add('hidden');
+	                    return;
+	                }
+	                items.slice(0, 8).forEach((item) => {
+	                    const btn = document.createElement('button');
+	                    btn.type = 'button';
+		                    btn.className = 'location-suggestion w-full px-4 py-3 text-left text-sm font-semibold text-white/85 hover:bg-white/10';
+		                    btn.textContent = `${item.name} — ${item.description}`;
+	                    btn.addEventListener('click', () => applySelection(item));
+	                    suggestionsEl.appendChild(btn);
+	                });
+	                suggestionsEl.classList.remove('hidden');
+            }
+
+            searchInput?.addEventListener('input', (e) => {
+                const term = e.target.value.trim();
+                if (debounceId) clearTimeout(debounceId);
+                if (term.length < 2) {
+                    suggestionsEl.innerHTML = '';
+                    suggestionsEl.classList.add('hidden');
+                    return;
+                }
+                debounceId = setTimeout(async () => {
+                    const items = await fetchLocations(term);
+                    renderSuggestions(items);
+                }, 250);
+            });
+
+	            clearBtn?.addEventListener('click', () => {
+	                if (latInput) {
+	                    latInput.value = '';
+	                    latInput.disabled = true;
+	                }
+	                if (lonInput) {
+	                    lonInput.value = '';
+	                    lonInput.disabled = true;
+	                }
+	                if (labelInput) {
+	                    labelInput.value = '';
+	                    labelInput.disabled = true;
+	                }
+	                searchInput.value = '';
+	                summaryEl.textContent = '';
+	                suggestionsEl.innerHTML = '';
+	                suggestionsEl.classList.add('hidden');
+	                if (filtersForm.requestSubmit) {
+	                    filtersForm.requestSubmit();
+	                } else {
+	                    filtersForm.submit();
+	                }
+	            });
+
+	            if (latInput?.value && lonInput?.value) {
+	                renderSummary(labelInput?.value, latInput.value, lonInput.value);
+	            }
+	        })();
+
+	        // Client-side filtering (NO page reloads!)
+	        (() => {
+	            const searchInput = document.querySelector('#filter-search');
+	            const genderSelect = document.querySelector('#filter-gender');
+	            const minAgeInput = document.querySelector('#filter-min-age');
+	            const maxAgeInput = document.querySelector('#filter-max-age');
+	            const radiusInput = document.querySelector('#filter-radius');
+	            const friendsCheckbox = document.querySelector('#filter-friends-only');
+	            const userCards = document.querySelectorAll('.user-card');
+
+            // Debounce helper (300ms delay)
+            let debounceTimer;
+            function debounce(fn, delay = 300) {
+                return (...args) => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => fn(...args), delay);
+                };
+            }
+
+	            // Main filter function
+	            function applyFilters() {
+	                if (minAgeInput && maxAgeInput) {
+	                    const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+	                    const rawMin = minAgeInput.value.trim();
+	                    const rawMax = maxAgeInput.value.trim();
+
+	                    if (rawMin !== '') {
+	                        const v = parseInt(rawMin, 10);
+	                        if (!Number.isNaN(v)) minAgeInput.value = String(clamp(v, 18, 100));
+	                    }
+	                    if (rawMax !== '') {
+	                        const v = parseInt(rawMax, 10);
+	                        if (!Number.isNaN(v)) maxAgeInput.value = String(clamp(v, 18, 100));
+	                    }
+
+	                    const minV = parseInt(minAgeInput.value, 10);
+	                    const maxV = parseInt(maxAgeInput.value, 10);
+	                    if (!Number.isNaN(minV) && !Number.isNaN(maxV) && minV > maxV) {
+	                        maxAgeInput.value = String(minV);
+	                    }
+	                }
+
+	                const search = (searchInput?.value || '').toLowerCase().trim();
+	                const gender = genderSelect?.value || '';
+	                const minAge = parseInt(minAgeInput?.value) || 0;
+	                const maxAge = parseInt(maxAgeInput?.value) || 999;
+	                const friendsOnly = friendsCheckbox?.checked || false;
+
+                let visible = 0;
+
+                userCards.forEach(card => {
+                    // Get card data
+                    const name = card.dataset.name || '';
+                    const city = card.dataset.city || '';
+                    const cardGender = card.dataset.gender || '';
+                    const age = parseInt(card.dataset.age) || 0;
+                    const isFriend = card.dataset.isFriend === '1';
+
+                    let show = true;
+
+                    // Search filter (naam OF stad)
+                    if (search && !name.includes(search) && !city.includes(search)) {
+                        show = false;
+                    }
+
+                    // Gender filter
+                    if (gender && cardGender !== gender) {
+                        show = false;
+                    }
+
+                    // Age range filter
+                    if (age < minAge || age > maxAge) {
+                        show = false;
+                    }
+
+                    // Friends-only filter
+                    if (friendsOnly && !isFriend) {
+                        show = false;
+                    }
+
+                    // Apply visibility
+                    card.classList.toggle('hidden', !show);
+                    if (show) visible++;
+                });
+
+                console.log(`✅ Zichtbaar: ${visible}/${userCards.length}`);
+            }
+
+            // Attach event listeners
+            searchInput?.addEventListener('input', debounce(applyFilters));
+            genderSelect?.addEventListener('change', applyFilters);
+            minAgeInput?.addEventListener('input', debounce(applyFilters, 500));
+            maxAgeInput?.addEventListener('input', debounce(applyFilters, 500));
+	            friendsCheckbox?.addEventListener('change', applyFilters);
+	            radiusInput?.addEventListener('change', () => {
+	                const form = radiusInput.closest('form');
+	                if (form?.requestSubmit) {
+	                    form.requestSubmit();
+	                } else {
+	                    form?.submit();
+	                }
+	            });
+
+	            // Apply on page load (respect initial filters.friends_only state)
+	            applyFilters();
+	        })();
+
+		        // Filters: toggle via icon, auto-close on scroll.
+		        (() => {
+		            const shell = document.querySelector('#discovery-filters-shell');
+		            const toggleBtn = document.querySelector('#toggle-filters');
+		            const suggestionsEl = document.querySelector('#location-suggestions');
+
+		            if (!shell || !toggleBtn) return;
+
+		            let collapsed = true;
+		            let lastY = window.scrollY || 0;
+		            let ticking = false;
+		            let ignoreScrollUntil = 0;
+
+		            function setCollapsed(next) {
+		                if (collapsed === next) return;
+
+		                collapsed = next;
+		                toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+
+		                shell.classList.toggle('max-h-[720px]', !collapsed);
+		                shell.classList.toggle('opacity-100', !collapsed);
+		                shell.classList.toggle('translate-y-0', !collapsed);
+
+		                shell.classList.toggle('max-h-0', collapsed);
+		                shell.classList.toggle('opacity-0', collapsed);
+		                shell.classList.toggle('-translate-y-2', collapsed);
+		                shell.classList.toggle('pointer-events-none', collapsed);
+
+		                if (collapsed) {
+		                    suggestionsEl?.classList.add('hidden');
+		                    suggestionsEl && (suggestionsEl.innerHTML = '');
+		                }
+
+		                lastY = window.scrollY || 0;
+		            }
+
+		            function onScroll() {
+		                if (collapsed) return;
+		                const y = window.scrollY || 0;
+		                const now = window.performance?.now?.() || Date.now();
+		                if (now < ignoreScrollUntil) {
+		                    lastY = y;
+		                    return;
+		                }
+
+		                const delta = y - lastY;
+		                lastY = y;
+		                if (Math.abs(delta) < 6) return;
+		                setCollapsed(true);
+		            }
+
+	            window.addEventListener(
+	                'scroll',
+	                () => {
+	                    if (ticking) return;
+	                    ticking = true;
+	                    window.requestAnimationFrame(() => {
+	                        ticking = false;
+	                        onScroll();
+	                    });
+	                },
+	                { passive: true }
+	            );
+
+		            toggleBtn.addEventListener('click', () => {
+		                const now = window.performance?.now?.() || Date.now();
+		                const next = !collapsed;
+		                ignoreScrollUntil = next ? now + 900 : 0;
+		                setCollapsed(next);
+		            });
+		        })();
+
+                // Inline user info (no navigation).
+                (() => {
+                    const buttons = document.querySelectorAll('[data-user-summary-url]');
+                    if (!buttons.length) return;
+
+                    document.addEventListener('click', (e) => {
+                        const btn = e.target?.closest?.('.user-summary button[aria-label="Sluiten"]');
+                        if (!btn) return;
+                        const panel = btn.closest('.user-summary');
+                        if (!panel) return;
+                        panel.classList.remove('is-open');
+                    });
+
+                    function closeAllExcept(keepId) {
+                        document.querySelectorAll('.user-summary.is-open').forEach((el) => {
+                            if (keepId && el.id === keepId) return;
+                            el.classList.remove('is-open');
+                        });
+                    }
+
+                    buttons.forEach((btn) => {
+                        btn.addEventListener('click', async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            const url = btn.getAttribute('data-user-summary-url');
+                            const summaryId = btn.getAttribute('data-user-summary-id');
+                            if (!url || !summaryId) return;
+                            const panel = document.getElementById(summaryId);
+                            if (!panel) return;
+
+                            const isOpen = panel.classList.contains('is-open');
+                            if (isOpen) {
+                                panel.classList.remove('is-open');
+                                return;
+                            }
+
+                            closeAllExcept(summaryId);
+
+                            if (panel.getAttribute('data-loaded') !== '1') {
+                                panel.innerHTML = '<div class="user-summary-loading">Laden…</div>';
+                                try {
+                                    const resp = await fetch(url, { credentials: 'same-origin' });
+                                    if (!resp.ok) throw new Error(String(resp.status));
+                                    panel.innerHTML = await resp.text();
+                                    panel.setAttribute('data-loaded', '1');
+                                } catch (_) {
+                                    panel.innerHTML =
+                                        '<div class="user-summary-loading">Kon info niet laden.</div>';
+                                }
+                            }
+
+                            panel.classList.add('is-open');
+                        });
+                    });
+                })();
+	    </script>
+	{% endblock %}

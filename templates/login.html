@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block title %}Login - GoAmet{% endblock %}
+
+{% block content %}
+<div class="login-container">
+  <div class="login-card">
+    <h1 class="login-title">GoAmet</h1>
+    <p class="login-subtitle">Ontdek mensen in jouw buurt</p>
+
+    <form method="post" action="/login" class="login-form">
+      <div class="form-group">
+        <label for="email">E-mailadres</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          value="abbas@example.com"
+          required
+          class="form-input"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Wachtwoord</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          value="Twente2025!Secure"
+          placeholder="Voer je wachtwoord in"
+          required
+          class="form-input"
+        >
+      </div>
+
+      <button type="submit" class="btn-login">Inloggen</button>
+    </form>
+
+    <p class="login-hint">Demo account: abbas@example.com</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+pub mod activities_repo;
+pub mod activity_detail_repo;
+pub mod activity_repo;
+pub mod activity_signup_commands_repo;
+pub mod activity_summary_repo;
+pub mod activity_waitlist_commands_repo;
+pub mod chat_cache_repo;
+pub mod chat_conversations_repo;
+pub mod current_user_repo;
+pub mod discovery_repo;
+pub mod friendship_commands_repo;
+pub mod interests_repo;
+pub mod promotion_units_repo;
+pub mod user_repo;
+pub mod user_summary_repo;

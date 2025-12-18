@@ -1,0 +1,49 @@
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.db.bak*
+
+# Environment
+.env
+
+# Logs
+*.log
+*.out
+server.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+/tmp/
+*.tmp
+
+# Node
+node_modules/
+package-lock.json
+
+# Test/dev files
+cookies.txt
+*.png
+*.jpg
+*.webp
+*.json
+!package.json
+
+# k3s service docs (belongs elsewhere)
+k3s/
+
+# Chat cache
+chat_cache/

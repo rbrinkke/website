@@ -1,0 +1,210 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ user.name }} - GoAmet{% endblock %}
+
+{% block content %}
+    <style>
+        body,
+        .app-container {
+            background: #0b1220 !important;
+        }
+    </style>
+    <div class="min-h-screen bg-goamet-navy">
+        <div class="pointer-events-none fixed inset-0">
+            <div class="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-goamet-blue/10 blur-3xl"></div>
+            <div class="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-goamet-pink/10 blur-3xl"></div>
+        </div>
+
+        <header class="sticky top-0 z-50" style="background:#0B1220; border-bottom: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 26px rgba(0,0,0,0.30);">
+            <div class="px-4 py-3 flex items-center justify-between">
+                <a
+                    href="/discovery"
+                    class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-extrabold text-white bg-goamet-navy border border-white/15 shadow-sm active:scale-[0.99]"
+                >
+                    <span class="text-lg leading-none">‹</span>
+                    Terug
+                </a>
+
+                <div class="flex items-center gap-2">
+                    <div class="relative h-8 w-8 rounded-2xl bg-gradient-to-br from-goamet-blue to-goamet-blue/60 shadow-sm">
+                        <div class="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-goamet-pink shadow"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-white font-extrabold">G</div>
+                    </div>
+                    <div class="text-sm font-extrabold tracking-wide text-white">GoAmet</div>
+                </div>
+
+                <button
+                    type="button"
+                    class="inline-flex items-center justify-center rounded-2xl h-11 w-11 bg-goamet-navy border border-white/15 shadow-sm text-white"
+                    title="Meer acties (coming soon)"
+                    aria-label="Meer acties"
+                    disabled
+                >
+                    ⋯
+                </button>
+            </div>
+        </header>
+
+	        <main class="px-4 pt-4 pb-28">
+	            <section class="relative overflow-hidden rounded-2xl bg-goamet-navy shadow-glow border border-white/10">
+                <div class="relative">
+                    {% if user.main_photo_id.is_some() %}
+                        <img
+                            class="w-full aspect-[3/4] object-cover bg-gray-200"
+                            src="/images/{{ user.main_photo_id.as_ref().unwrap() }}"
+                            alt="{{ user.name }}"
+                            onerror="this.src='/assets/placeholder.svg'"
+                            loading="lazy"
+                        >
+                    {% else %}
+                        <img class="w-full aspect-[3/4] object-cover bg-gray-200" src="/assets/placeholder.svg" alt="{{ user.name }}">
+                    {% endif %}
+
+	                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent"></div>
+
+                    <div class="absolute top-4 left-4 right-4 flex items-start justify-between gap-2">
+                        <div class="flex flex-wrap gap-2">
+                            {% if user.is_verified %}
+                                <span class="inline-flex items-center gap-2 rounded-full bg-white/90 backdrop-blur px-3 py-2 text-xs font-extrabold text-goamet-navy border border-black/10 shadow-sm">
+                                    <span class="h-2.5 w-2.5 rounded-full bg-goamet-blue"></span>
+                                    Geverifieerd
+                                </span>
+                            {% endif %}
+
+                            {% if user.subscription_level == "premium" %}
+                                <span class="inline-flex items-center rounded-full bg-goamet-navy text-white px-3 py-2 text-xs font-extrabold shadow-sm">
+                                    Premium
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        {% if user.last_seen_label.is_some() %}
+                            <span class="inline-flex items-center rounded-full bg-white/90 backdrop-blur px-3 py-2 text-xs font-extrabold text-black/70 border border-black/10 shadow-sm">
+                                {{ user.last_seen_label.as_ref().unwrap() }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="absolute bottom-0 left-0 right-0 p-4">
+                        <div class="flex items-end justify-between gap-3">
+                            <div>
+                                <div class="flex items-baseline gap-2">
+                                    <h1 class="text-3xl font-black tracking-tight text-white drop-shadow">
+                                        {{ user.name }}
+                                    </h1>
+                                    {% if user.age.is_some() %}
+                                        <span class="text-lg font-extrabold text-white/85 drop-shadow">
+                                            {{ user.age.unwrap() }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-semibold text-white/85">
+                                    {% if user.location_label != "" %}
+                                        <span class="inline-flex items-center gap-2">
+                                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path></svg>
+                                            {{ user.location_label }}
+                                        </span>
+                                    {% endif %}
+                                    {% if user.gender_label != "" %}
+                                        <span class="inline-flex items-center gap-2">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-white/70"></span>
+                                            {{ user.gender_label }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="rounded-2xl bg-white/92 backdrop-blur border border-black/10 px-3 py-2 text-center shadow-sm">
+                                    <div class="text-base font-black text-goamet-navy">{{ user.activities_attended_count }}</div>
+                                    <div class="text-[11px] font-extrabold text-black/55">Deelnames</div>
+                                </div>
+                                <div class="rounded-2xl bg-white/92 backdrop-blur border border-black/10 px-3 py-2 text-center shadow-sm">
+                                    <div class="text-base font-black text-goamet-navy">{{ user.activities_created_count }}</div>
+                                    <div class="text-[11px] font-extrabold text-black/55">Gehost</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if user.interests.len() > 0 %}
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                {% for interest in user.interests %}
+                                    <span class="inline-flex items-center rounded-full bg-white/90 backdrop-blur text-goamet-navy border border-black/10 px-3 py-1.5 text-xs font-extrabold shadow-sm">
+                                        {{ interest }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if user.profile_description != "" %}
+                    <div class="p-4">
+                        <div class="rounded-3xl bg-[#FAFBFF] border border-black/5 p-4">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-sm font-black text-goamet-navy">Over mij</h2>
+                                <span class="text-[11px] font-extrabold text-black/40">GoAmet</span>
+                            </div>
+                            <p class="mt-2 text-sm leading-relaxed text-black/70 whitespace-pre-wrap">
+                                {{ user.profile_description }}
+                            </p>
+                        </div>
+                    </div>
+                {% endif %}
+            </section>
+
+            {% if user.extra_photo_ids.len() > 0 %}
+                <section class="mt-4 rounded-[28px] bg-white shadow-sm border border-black/5 p-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-black text-goamet-navy">Foto's</h2>
+                        <span class="text-[11px] font-extrabold text-black/45">{{ user.extra_photo_ids.len() }} extra</span>
+                    </div>
+                    <div class="mt-3 grid grid-cols-3 gap-2">
+                        {% for photo_id in user.extra_photo_ids %}
+                            <img
+                                class="w-full aspect-square object-cover rounded-2xl bg-gray-200 border border-black/5"
+                                src="/images/{{ photo_id }}"
+                                alt="Extra foto"
+                                onerror="this.src='/assets/placeholder.svg'"
+                                loading="lazy"
+                            >
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+
+            <section class="mt-4 rounded-[28px] bg-white border border-black/5 p-4">
+                <h2 class="text-sm font-black text-goamet-navy">Safety</h2>
+                <p class="mt-2 text-sm text-black/65">
+                    Rapporteren/blokkeren komt hier (later). Nu houden we de UI alvast consistent.
+                </p>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                    <button type="button" class="rounded-2xl px-4 py-3 text-sm font-black border border-black/10 bg-white text-black/60" disabled>Blokkeer</button>
+                    <button type="button" class="rounded-2xl px-4 py-3 text-sm font-black border border-goamet-pink/20 bg-goamet-pink/10 text-goamet-navy" disabled>Rapporteer</button>
+                </div>
+            </section>
+        </main>
+
+        <nav class="bottom-nav backdrop-blur" style="background: rgba(11,18,32,0.92); border-top: 1px solid rgba(255,255,255,0.10);">
+            <a href="/discovery" class="nav-item active">
+                <div class="nav-icon-container">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+                </div>
+                <span>Discovery</span>
+            </a>
+            <a href="/activities" class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span>Activiteiten</span>
+            </a>
+            <a href="/chats" class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Chats</span>
+            </a>
+            <a href="#" class="nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span>Notifications</span>
+            </a>
+        </nav>
+    </div>
+{% endblock %}

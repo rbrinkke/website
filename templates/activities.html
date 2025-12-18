@@ -1,0 +1,816 @@
+{% extends "layout.html" %}
+
+{% block title %}Activiteiten - GoAmet{% endblock %}
+
+{% block content %}
+<style>
+    body,
+    .app-container {
+        background: #0b1220 !important;
+    }
+</style>
+<div class="min-h-screen bg-goamet-navy">
+    <div class="pointer-events-none fixed inset-0">
+        <div class="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-goamet-blue/10 blur-3xl"></div>
+        <div class="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-goamet-pink/10 blur-3xl"></div>
+    </div>
+
+    <header class="sticky top-0 z-50" style="background: #0B1220; border-bottom: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 26px rgba(0,0,0,0.30);">
+        <div class="px-4 pt-3 pb-2 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="relative h-8 w-8 rounded-2xl bg-gradient-to-br from-goamet-blue to-goamet-blue/60 shadow-sm">
+                    <div class="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-goamet-pink shadow"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-white font-extrabold">G</div>
+                </div>
+                <div>
+                    <div class="text-sm font-black tracking-wide text-white">Activiteiten</div>
+                    <div class="text-[11px] font-semibold text-white/55">Ik ga • Ontdek • Geweest</div>
+                </div>
+            </div>
+        </div>
+
+        <form id="activities-form" method="get" action="/activities" class="px-4 pb-4">
+            <input type="hidden" name="tab" id="filter-tab" value="{{ filters.tab }}">
+            <input type="hidden" name="lat" id="filter-lat" value="{{ filters.lat.unwrap_or_default() }}" {% if filters.lat.is_none() %}disabled{% endif %}>
+            <input type="hidden" name="lon" id="filter-lon" value="{{ filters.lon.unwrap_or_default() }}" {% if filters.lon.is_none() %}disabled{% endif %}>
+            <input type="hidden" name="loc_label" id="filter-loc-label" value="{{ filters.location_label.clone().unwrap_or_default() }}" {% if filters.location_label.is_none() %}disabled{% endif %}>
+
+            <div class="relative grid gap-3 rounded-[24px] bg-goamet-navy/80 shadow-glow border border-white/10 p-2">
+                <div class="flex items-stretch gap-2">
+                    <div class="grid grid-cols-3 gap-2 flex-1">
+                        <button type="button" data-tab="upcoming"
+                            class="tab-btn rounded-2xl py-3 text-xs font-black border border-white/15 shadow-sm {% if filters.tab == "upcoming" %}bg-goamet-blue text-white{% else %}bg-goamet-navy text-white/80{% endif %}">
+                            Ik ga
+                        </button>
+                        <button type="button" data-tab="discover"
+                            class="tab-btn rounded-2xl py-3 text-xs font-black border border-white/15 shadow-sm {% if filters.tab == "discover" %}bg-goamet-blue text-white{% else %}bg-goamet-navy text-white/80{% endif %}">
+                            Ontdek
+                        </button>
+                        <button type="button" data-tab="history"
+                            class="tab-btn rounded-2xl py-3 text-xs font-black border border-white/15 shadow-sm {% if filters.tab == "history" %}bg-goamet-blue text-white{% else %}bg-goamet-navy text-white/80{% endif %}">
+                            Geweest
+                        </button>
+                    </div>
+
+                    <button
+                        id="toggle-activities-filters"
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-2xl h-11 w-11 bg-goamet-navy border border-white/15 shadow-sm text-white"
+                        title="Filters"
+                        aria-label="Filters"
+                        aria-expanded="false"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
+                            <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"></path>
+                        </svg>
+                    </button>
+
+                    <a
+                        href="/activities"
+                        class="inline-flex items-center justify-center rounded-2xl h-11 w-11 bg-goamet-navy border border-white/15 shadow-sm text-white"
+                        title="Reset"
+                        aria-label="Reset"
+                    >
+                        ↺
+                    </a>
+                </div>
+
+                <div
+                    id="activities-filters-shell"
+                    class="absolute left-0 right-0 top-full mt-2 z-[999] overflow-hidden will-change-[max-height,opacity,transform] transition-[max-height,opacity,transform] duration-200 ease-out max-h-0 opacity-0 -translate-y-2 pointer-events-none px-2 pb-2"
+                >
+                    <div class="grid gap-3 rounded-[22px] bg-goamet-navy border border-white/12 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+                        <div class="grid gap-1">
+                            <label for="filter-search" class="text-[11px] font-extrabold text-white/60">Zoeken</label>
+                            <input
+                                class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-semibold text-white placeholder:text-white/35 shadow-sm"
+                                type="search"
+                                id="filter-search"
+                                name="q"
+                                placeholder="Titel of stad"
+                                autocomplete="off"
+                                value="{{ filters.search_query }}"
+                            >
+                        </div>
+
+                        <div class="grid gap-1">
+                            <label for="filter-radius" class="text-[11px] font-extrabold text-white/60">Afstand (km)</label>
+                            <input
+                                class="w-full accent-[var(--primary)]"
+                                type="range"
+                                id="filter-radius"
+                                name="radius_km"
+                                min="1"
+                                max="200"
+                                value="{{ filters.radius_km }}"
+                            >
+                            <div class="flex items-center justify-between text-[11px] font-extrabold text-white/55">
+                                <span>1 km</span>
+                                <span class="text-white">{{ filters.radius_km }} km</span>
+                                <span>200 km</span>
+                            </div>
+                        </div>
+
+                        <div class="grid gap-1">
+                            <label for="location-search" class="text-[11px] font-extrabold text-white/60">Locatie (server-side)</label>
+                            <div class="relative">
+                                <input
+                                    class="w-full rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 pr-12 text-sm font-semibold text-white placeholder:text-white/35 shadow-sm"
+                                    type="search"
+                                    id="location-search"
+                                    placeholder="Stad of dorp (min 2 letters)"
+                                    autocomplete="off"
+                                    value="{{ filters.location_label.clone().unwrap_or_default() }}"
+                                >
+                                <button
+                                    id="clear-location"
+                                    type="button"
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl px-3 py-2 text-xs font-black text-white/70 hover:bg-white/10"
+                                    title="Wis locatie"
+                                    aria-label="Wis locatie"
+                                >
+                                    Wis
+                                </button>
+                                <div
+                                    id="location-suggestions"
+                                    class="absolute left-0 right-0 top-[110%] z-30 hidden overflow-hidden rounded-2xl border border-white/15 bg-goamet-navy shadow-lg"
+                                ></div>
+                            </div>
+                            <div id="location-summary" class="min-h-[18px] text-[11px] font-extrabold text-white/55">
+                                {% if filters.coord_label.is_some() %}
+                                    📍 {{ filters.coord_label.clone().unwrap_or_default() }}
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="grid gap-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-extrabold text-white/60">Interesses</label>
+                                <button
+                                    type="button"
+                                    id="toggle-interests"
+                                    class="rounded-2xl px-3 py-2 text-xs font-black border border-white/15 bg-goamet-navy text-white/80 shadow-sm"
+                                >
+                                    Meer
+                                </button>
+                            </div>
+                            <div id="interests-chips" class="flex flex-wrap gap-2 max-h-24 overflow-hidden">
+                                {% for i in interest_options %}
+                                    <label class="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black border shadow-sm cursor-pointer {% if i.selected %}bg-goamet-blue text-white border-white/0{% else %}bg-goamet-navy text-white/80 border-white/15{% endif %}">
+                                        <input
+                                            type="checkbox"
+                                            class="h-4 w-4 accent-[var(--primary)]"
+                                            name="interests"
+                                            value="{{ i.name }}"
+                                            {% if i.selected %}checked{% endif %}
+                                        >
+                                        <span>{% if i.emoji.is_some() %}{{ i.emoji.clone().unwrap() }}{% else %}🏷{% endif %}</span>
+                                        <span>{{ i.name }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <label class="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-goamet-navy px-4 py-3 text-sm font-extrabold text-white/80 shadow-sm">
+                            <input
+                                type="checkbox"
+                                id="filter-hide-full"
+                                name="hide_full"
+                                value="true"
+                                class="h-5 w-5 accent-[var(--primary)]"
+                                {% if filters.hide_full %}checked{% endif %}
+                            >
+                            Verberg volle activiteiten
+                        </label>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="rounded-2xl px-4 py-3 text-sm font-black bg-goamet-blue text-white shadow-sm" type="submit">Herlaad</button>
+                            <a class="rounded-2xl px-4 py-3 text-sm font-black bg-goamet-navy border border-white/15 text-white/80 text-center shadow-sm" href="/activities">Reset</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </header>
+
+    {% if filters.notice.is_some() %}
+        <div class="px-4 pt-3">
+            {% if filters.notice.as_ref().unwrap() == "error" %}
+                <div class="rounded-2xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm font-extrabold text-red-700">
+                    Actie mislukt. Probeer opnieuw.
+                </div>
+            {% else %}
+                <div class="rounded-2xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm font-extrabold text-green-800">
+                    {% if filters.notice.as_ref().unwrap() == "join_ok" %}Je bent aangemeld.{% endif %}
+                    {% if filters.notice.as_ref().unwrap() == "leave_ok" %}Je bent afgemeld.{% endif %}
+                    {% if filters.notice.as_ref().unwrap() == "owner_join_ok" %}Gebruiker is toegevoegd.{% endif %}
+                    {% if filters.notice.as_ref().unwrap() == "owner_leave_ok" %}Gebruiker is verwijderd.{% endif %}
+                    <span class="text-black/50 font-black"> (dev sync volgt)</span>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <main class="pb-24">
+        {% if activities.len() == 0 %}
+            <div class="px-4 pt-16 text-center">
+                <div class="mx-auto h-16 w-16 rounded-3xl bg-goamet-navy shadow-sm border border-white/10 flex items-center justify-center text-white/35 text-3xl">
+                    {% if filters.tab == "discover" %}🧭{% else if filters.tab == "upcoming" %}📅{% else %}✅{% endif %}
+                </div>
+                <div class="mt-4 text-sm font-extrabold text-white/70">
+                    {% if filters.tab == "upcoming" %}
+                        Je hebt nog geen plannen. Tijd om iets te vinden!
+                    {% else if filters.tab == "history" %}
+                        Je hebt nog geen activiteiten bijgewoond.
+                    {% else %}
+                        Geen nieuwe activiteiten gevonden.
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+
+        {% for a in activities %}
+            <div id="activity-card-{{ a.activity_id }}" class="relative mx-4 my-2 overflow-hidden rounded-2xl activity-card">
+                <div class="relative h-[320px] w-full activity-photo-shell">
+                    <button
+                        type="button"
+                        class="absolute inset-0 z-10 bg-transparent border-0 p-0 m-0 appearance-none"
+                        data-activity-info-url="/activities/{{ a.activity_id }}/summary"
+                        data-activity-summary-id="activity-summary-{{ a.activity_id }}"
+                        data-activity-card-id="activity-card-{{ a.activity_id }}"
+                        aria-label="Toon info voor {{ a.title }}"
+                        title="Info"
+                    ></button>
+                    {% if a.main_photo_asset_id.is_some() %}
+                        <img
+                            class="absolute inset-0 h-full w-full object-cover"
+                            src="/images/{{ a.main_photo_asset_id.clone().unwrap() }}"
+                            alt="{{ a.title }}"
+                            loading="lazy"
+                            onerror="this.src='/assets/placeholder.svg'"
+                        >
+                    {% else %}
+                        <div class="absolute inset-0 bg-gradient-to-br from-[#6A1B9A] to-[#283593]">
+                            <div class="absolute inset-0 flex items-center justify-center text-white/25 text-6xl font-black">G</div>
+                        </div>
+                    {% endif %}
+
+                    <div class="absolute inset-0 bg-gradient-to-b from-black/0 via-black/10 to-black/90"></div>
+
+                    <div class="absolute top-4 left-4 right-4 z-20 flex items-start justify-between gap-3 pointer-events-none">
+                        <div class="flex flex-col gap-2 min-w-0">
+                            <div class="flex flex-wrap gap-2">
+                            {% if a.status == "cancelled" %}
+                                <span class="inline-flex items-center rounded-full bg-red-500 px-3 py-2 text-[11px] font-black tracking-wide text-white shadow-sm">
+                                    GEANNULEERD
+                                </span>
+                            {% endif %}
+                            {% if a.is_joined %}
+                                <span class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-[11px] font-black text-goamet-blue shadow-sm">
+                                    ✓ {% if a.is_past %}GEWEEST{% else %}IK GA{% endif %}
+                                </span>
+                            {% endif %}
+                            {% if a.is_full && !a.is_joined && !a.is_past %}
+                                <span class="inline-flex items-center rounded-full bg-white/90 backdrop-blur px-3 py-2 text-[11px] font-black text-black/70 border border-black/10 shadow-sm">
+                                    VOL
+                                </span>
+                            {% endif %}
+                            </div>
+                        </div>
+                        {% if a.is_full %}
+                            <span class="inline-flex items-center rounded-full backdrop-blur px-3 py-2 text-[11px] font-black shadow-sm pointer-events-none" style="background: rgba(255,0,102,0.22); color: #FF0066; border: 1px solid rgba(255,0,102,0.40); box-shadow: 0 0 0 2px rgba(255,0,102,0.12), 0 8px 18px rgba(255,0,102,0.18);">
+                                {{ a.participants_count }}/{{ a.max_participants }} • VOL
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center rounded-full backdrop-blur px-3 py-2 text-[11px] font-black shadow-sm pointer-events-none" style="background: rgba(30,136,229,0.20); color: #1E88E5; border: 1px solid rgba(30,136,229,0.30);">
+                                {{ a.participants_count }}/{{ a.max_participants }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="absolute bottom-0 left-0 right-0 p-4 pointer-events-none z-20">
+                        <div class="text-white text-[22px] font-extrabold leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] max-h-[56px] overflow-hidden">
+                            {{ a.title }}
+                        </div>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] font-semibold text-white/75">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="text-white/70">📅</span>
+                                {{ a.date_label }}
+                            </span>
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="text-white/70">⏱</span>
+                                {{ a.time_label }}
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 max-w-full">
+                                <span class="text-white/70">📍</span>
+                                <span class="truncate max-w-[220px]">{{ a.location_label }}</span>
+                            </span>
+                        </div>
+
+                    </div>
+
+                    {% if !a.is_past && a.status != "cancelled" %}
+                        <div class="absolute top-3 left-3 z-30 pointer-events-auto">
+                            {% if a.is_joined %}
+                                <a href="/activities/{{ a.activity_id }}" class="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-xs font-black bg-white/90 backdrop-blur border border-black/10 text-goamet-navy shadow-sm">
+                                    Bekijk
+                                </a>
+                            {% else %}
+                                {% if !a.is_full || a.waitlist_enabled %}
+                                    <form method="post" action="{% if a.is_full %}/activities/{{ a.activity_id }}/waitlist{% else %}/activities/{{ a.activity_id }}/signup{% endif %}">
+                                        {% if a.is_full %}
+                                            <input type="hidden" name="action" value="set_waitlisted">
+                                        {% else %}
+                                            <input type="hidden" name="action" value="join">
+                                        {% endif %}
+                                        <input type="hidden" name="return_to" value="/activities?tab={{ filters.tab }}">
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center justify-center rounded-full h-11 w-11 shadow-sm ring-2 ring-white/70 text-white"
+                                            style="background:#0B1220; border:1px solid rgba(255,255,255,0.15);"
+                                            aria-label="{% if a.is_full %}Op wachtlijst{% else %}Aanmelden{% endif %}"
+                                            title="{% if a.is_full %}Op wachtlijst{% else %}Aanmelden{% endif %}"
+                                        >
+                                            <span class="sr-only">{% if a.is_full %}Op wachtlijst{% else %}Aanmelden{% endif %}</span>
+                                            {% if a.is_full %}
+                                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <circle cx="12" cy="12" r="9"></circle>
+                                                    <path d="M12 7v5l3 2"></path>
+                                                </svg>
+                                            {% else %}
+                                                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                    <circle cx="8.5" cy="7" r="4"></circle>
+                                                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                                                    <line x1="23" y1="11" x2="17" y2="11"></line>
+                                                </svg>
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                {% if a.participants_preview.len() > 0 %}
+                    <div class="activity-participants-strip grid grid-cols-5" data-participants-carousel="1" data-carousel-group="{{ a.participants_page_size }}" data-carousel-interval-ms="5000">
+                        {% for p in a.participants_preview %}
+                            <div class="activity-participants-tile{% if p.is_organizer || p.is_cta || p.is_filler %} activity-participants-fixed{% endif %}{% if loop.index0 >= a.participants_page_size %} hidden{% endif %}">
+                                {% if p.is_filler %}
+                                    <div class="activity-participants-filler" style="{% if p.filler_background_color.is_some() %}background: {{ p.filler_background_color.clone().unwrap() }};{% else %}background: #0B1220;{% endif %}">
+                                        <div class="activity-participants-filler-mark{% if p.name != "" %} activity-participants-filler-mark-emoji{% endif %}">{% if p.name == "" %}👥{% else %}{{ p.name }}{% endif %}</div>
+                                    </div>
+                                {% else %}
+                                {% if p.is_cta %}
+                                    <div
+                                        class="activity-participants-cta"
+                                        style="{% if p.cta_background_color.is_some() %}background: {{ p.cta_background_color.clone().unwrap() }};{% else %}background: #1E88E5;{% endif %}"
+                                    >
+                                        {% if p.cta_action_kind.as_deref() == Some("join") || p.cta_action_kind.as_deref() == Some("waitlist") %}
+                                            {% if p.cta_action_kind.as_deref() == Some("waitlist") %}
+                                                <form method="post" action="/activities/{{ a.activity_id }}/waitlist" class="activity-participants-cta-inner">
+                                                    <input type="hidden" name="action" value="set_waitlisted">
+                                                    <input type="hidden" name="return_to" value="/activities?tab={{ filters.tab }}">
+                                                    <button type="submit" class="activity-participants-cta-btn" aria-label="{{ p.cta_label.clone().unwrap_or_default() }}">
+                                            {% else %}
+                                                <form method="post" action="/activities/{{ a.activity_id }}/signup" class="activity-participants-cta-inner">
+                                                    <input type="hidden" name="action" value="join">
+                                                    <input type="hidden" name="return_to" value="/activities?tab={{ filters.tab }}">
+                                                    <button type="submit" class="activity-participants-cta-btn" aria-label="{{ p.cta_label.clone().unwrap_or_default() }}">
+                                            {% endif %}
+                                                    <span class="activity-participants-cta-icon" aria-hidden="true">
+                                                        {% if p.cta_action_kind.as_deref() == Some("waitlist") %}
+                                                            <svg class="activity-participants-cta-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                <circle cx="12" cy="12" r="9"></circle>
+                                                                <path d="M12 7v5l3 2"></path>
+                                                            </svg>
+                                                        {% else %}
+                                                            <svg class="activity-participants-cta-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                                <circle cx="8.5" cy="7" r="4"></circle>
+                                                                <line x1="20" y1="8" x2="20" y2="14"></line>
+                                                                <line x1="23" y1="11" x2="17" y2="11"></line>
+                                                            </svg>
+                                                        {% endif %}
+                                                    </span>
+                                                    <span class="activity-participants-cta-text">{{ p.name }}</span>
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            {% if p.cta_action_kind.as_deref() == Some("info") %}
+                                                <div class="activity-participants-cta-inner">
+                                                    <button
+                                                        type="button"
+                                                        class="activity-participants-cta-btn"
+                                                        data-activity-info-url="/activities/{{ a.activity_id }}/summary"
+                                                        data-activity-summary-id="activity-summary-{{ a.activity_id }}"
+                                                        data-activity-card-id="activity-card-{{ a.activity_id }}"
+                                                        aria-label="Info"
+                                                        title="Info"
+                                                    >
+                                                        <span class="activity-participants-cta-icon" aria-hidden="true">
+                                                            <svg class="activity-participants-cta-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                <circle cx="12" cy="12" r="9"></circle>
+                                                                <path d="M12 10v6"></path>
+                                                                <path d="M12 7h.01"></path>
+                                                            </svg>
+                                                        </span>
+                                                        <span class="activity-participants-cta-text">{{ p.name }}</span>
+                                                    </button>
+                                                </div>
+                                            {% else %}
+                                                <a class="activity-participants-cta-inner activity-participants-cta-link" href="/activities/{{ a.activity_id }}" aria-label="{{ p.cta_label.clone().unwrap_or_default() }}">
+                                                    <span class="activity-participants-cta-icon" aria-hidden="true">
+                                                        {% if p.cta_action_kind.as_deref() == Some("waitlist") %}
+                                                            <svg class="activity-participants-cta-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                <circle cx="12" cy="12" r="9"></circle>
+                                                                <path d="M12 7v5l3 2"></path>
+                                                            </svg>
+                                                        {% else %}
+                                                            <svg class="activity-participants-cta-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                                <circle cx="8.5" cy="7" r="4"></circle>
+                                                                <line x1="20" y1="8" x2="20" y2="14"></line>
+                                                                <line x1="23" y1="11" x2="17" y2="11"></line>
+                                                            </svg>
+                                                        {% endif %}
+                                                    </span>
+                                                    <span class="activity-participants-cta-text">{{ p.name }}</span>
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                {% if p.user_id.is_some() %}
+                                    <a class="absolute inset-0 z-10" href="/users/{{ p.user_id.clone().unwrap() }}" aria-label="Open profiel {{ p.name }}"></a>
+                                {% endif %}
+                                {% if p.image_id.is_some() %}
+                                    <img
+                                        class="activity-participants-photo"
+                                        src="/images/{{ p.image_id.clone().unwrap() }}"
+                                        alt=""
+                                        loading="lazy"
+                                        onerror="this.src='/assets/placeholder.svg'"
+                                    >
+                                {% else %}
+                                    <div class="activity-participants-placeholder"></div>
+                                {% endif %}
+
+                                <div class="activity-participants-name">
+                                    {{ p.name }}
+                                </div>
+
+                                {% if p.is_organizer %}
+                                    <div class="activity-participants-organizer" title="Organisator" aria-label="Organisator">
+                                        👑
+                                    </div>
+                                {% endif %}
+
+                                {% if p.is_friend %}
+                                    <div class="activity-participants-friend" title="Vriend" aria-label="Vriend" style="{% if p.is_organizer %}left: 28px;{% else %}left: 6px;{% endif %}">
+                                        🤝
+                                    </div>
+                                {% endif %}
+
+                                {% if p.is_verified %}
+                                    <div class="activity-participants-verified" title="Geverifieerd" aria-label="Geverifieerd">
+                                        ✓
+                                    </div>
+                                {% endif %}
+                                {% endif %}{% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div id="activity-summary-{{ a.activity_id }}" class="activity-summary" data-loaded="0" data-card-id="activity-card-{{ a.activity_id }}" aria-live="polite"></div>
+            </div>
+        {% endfor %}
+    </main>
+
+    <nav class="bottom-nav backdrop-blur" style="background: rgba(11,18,32,0.92); border-top: 1px solid rgba(255,255,255,0.10);">
+        <a href="/discovery" class="nav-item" style="color: rgba(255,255,255,0.70);">
+            <div class="nav-icon-container">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+            </div>
+            <span>Discovery</span>
+        </a>
+        <a href="/activities" class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>Activiteiten</span>
+        </a>
+        <a href="/chats" class="nav-item" style="color: rgba(255,255,255,0.70);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span>Chats</span>
+        </a>
+        <a href="#" class="nav-item" style="color: rgba(255,255,255,0.70);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <span>Notifications</span>
+        </a>
+    </nav>
+</div>
+
+<script src="/assets/js/participants_carousel.js" defer></script>
+<script>
+    (() => {
+        const form = document.querySelector('#activities-form');
+        const tabInput = document.querySelector('#filter-tab');
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const radiusInput = document.querySelector('#filter-radius');
+        const interestToggle = document.querySelector('#toggle-interests');
+        const interestsChips = document.querySelector('#interests-chips');
+        const hideFull = document.querySelector('#filter-hide-full');
+
+        tabButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const next = btn.getAttribute('data-tab') || 'discover';
+                if (tabInput) tabInput.value = next;
+                if (form?.requestSubmit) form.requestSubmit();
+                else form?.submit();
+            });
+        });
+
+        radiusInput?.addEventListener('change', () => {
+            if (form?.requestSubmit) form.requestSubmit();
+            else form?.submit();
+        });
+
+        interestsChips?.querySelectorAll('input[name="interests"]').forEach((el) => {
+            el.addEventListener('change', () => {
+                if (form?.requestSubmit) form.requestSubmit();
+                else form?.submit();
+            });
+        });
+
+        hideFull?.addEventListener('change', () => {
+            if (form?.requestSubmit) form.requestSubmit();
+            else form?.submit();
+        });
+
+        interestToggle?.addEventListener('click', () => {
+            if (!interestsChips) return;
+            const expanded = interestsChips.classList.contains('max-h-24');
+            interestsChips.classList.toggle('max-h-24', !expanded);
+            interestsChips.classList.toggle('max-h-[320px]', expanded);
+            interestsChips.classList.toggle('overflow-hidden', !expanded);
+            interestsChips.classList.toggle('overflow-auto', expanded);
+            interestToggle.textContent = expanded ? 'Minder' : 'Meer';
+        });
+
+    })();
+
+    // Location search (same behavior as discovery)
+    (() => {
+        const filtersForm = document.querySelector('#activities-form');
+        const searchInput = document.querySelector('#location-search');
+        const suggestionsEl = document.querySelector('#location-suggestions');
+        const summaryEl = document.querySelector('#location-summary');
+        const latInput = document.querySelector('#filter-lat');
+        const lonInput = document.querySelector('#filter-lon');
+        const labelInput = document.querySelector('#filter-loc-label');
+        const clearBtn = document.querySelector('#clear-location');
+
+        let debounceId;
+        if (!filtersForm || !searchInput || !suggestionsEl || !summaryEl) return;
+
+        function renderSummary(name, lat, lon) {
+            if (!lat || !lon) {
+                summaryEl.textContent = '';
+                return;
+            }
+            const coord = `${Number(lat).toFixed(4)}, ${Number(lon).toFixed(4)}`;
+            summaryEl.textContent = `📍 ${name || coord}`;
+        }
+
+        function applySelection(item) {
+            if (latInput) {
+                latInput.value = item.latitude;
+                latInput.disabled = false;
+            }
+            if (lonInput) {
+                lonInput.value = item.longitude;
+                lonInput.disabled = false;
+            }
+            if (labelInput) {
+                labelInput.value = item.name || '';
+                labelInput.disabled = !(item.name || '').trim().length;
+            }
+            searchInput.value = item.name || '';
+            renderSummary(item.name, item.latitude, item.longitude);
+            suggestionsEl.innerHTML = '';
+            suggestionsEl.classList.add('hidden');
+            if (filtersForm.requestSubmit) filtersForm.requestSubmit();
+            else filtersForm.submit();
+        }
+
+        async function fetchLocations(term) {
+            try {
+                const resp = await fetch(`/api/location/search?q=${encodeURIComponent(term)}`);
+                if (!resp.ok) return [];
+                return await resp.json();
+            } catch (_) {
+                return [];
+            }
+        }
+
+        function renderSuggestions(items) {
+            suggestionsEl.innerHTML = '';
+            if (!items.length) {
+                suggestionsEl.classList.add('hidden');
+                return;
+            }
+            items.slice(0, 8).forEach((item) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'location-suggestion w-full px-4 py-3 text-left text-sm font-semibold text-goamet-navy hover:bg-goamet-blue/5';
+                btn.textContent = `${item.name} — ${item.description}`;
+                btn.addEventListener('click', () => applySelection(item));
+                suggestionsEl.appendChild(btn);
+            });
+            suggestionsEl.classList.remove('hidden');
+        }
+
+        searchInput?.addEventListener('input', (e) => {
+            const term = e.target.value.trim();
+            if (debounceId) clearTimeout(debounceId);
+            if (term.length < 2) {
+                suggestionsEl.innerHTML = '';
+                suggestionsEl.classList.add('hidden');
+                return;
+            }
+            debounceId = setTimeout(async () => {
+                const items = await fetchLocations(term);
+                renderSuggestions(items);
+            }, 250);
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            if (latInput) {
+                latInput.value = '';
+                latInput.disabled = true;
+            }
+            if (lonInput) {
+                lonInput.value = '';
+                lonInput.disabled = true;
+            }
+            if (labelInput) {
+                labelInput.value = '';
+                labelInput.disabled = true;
+            }
+            searchInput.value = '';
+            renderSummary('', '', '');
+            suggestionsEl.innerHTML = '';
+            suggestionsEl.classList.add('hidden');
+            if (filtersForm.requestSubmit) filtersForm.requestSubmit();
+            else filtersForm.submit();
+        });
+    })();
+
+    // Filters: toggle via icon, auto-close on scroll.
+	    (() => {
+	        const shell = document.querySelector('#activities-filters-shell');
+	        const toggleBtn = document.querySelector('#toggle-activities-filters');
+	        const suggestionsEl = document.querySelector('#location-suggestions');
+
+	        if (!shell || !toggleBtn) return;
+
+	        let collapsed = true;
+	        let lastY = window.scrollY || 0;
+	        let ticking = false;
+	        let ignoreScrollUntil = 0;
+
+        function setCollapsed(next) {
+            if (collapsed === next) return;
+
+            collapsed = next;
+            toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+
+            shell.classList.toggle('max-h-[520px]', !collapsed);
+            shell.classList.toggle('opacity-100', !collapsed);
+            shell.classList.toggle('translate-y-0', !collapsed);
+
+            shell.classList.toggle('max-h-0', collapsed);
+            shell.classList.toggle('opacity-0', collapsed);
+            shell.classList.toggle('-translate-y-2', collapsed);
+            shell.classList.toggle('pointer-events-none', collapsed);
+
+            if (collapsed) {
+                suggestionsEl?.classList.add('hidden');
+                suggestionsEl && (suggestionsEl.innerHTML = '');
+            }
+
+            lastY = window.scrollY || 0;
+        }
+
+	        function onScroll() {
+	            if (collapsed) return;
+	            const y = window.scrollY || 0;
+	            const now = window.performance?.now?.() || Date.now();
+	            if (now < ignoreScrollUntil) {
+	                lastY = y;
+	                return;
+	            }
+	            const delta = y - lastY;
+	            lastY = y;
+	            if (Math.abs(delta) < 6) return;
+	            if (!collapsed) setCollapsed(true);
+	        }
+
+        window.addEventListener(
+            'scroll',
+            () => {
+                if (ticking) return;
+                ticking = true;
+                window.requestAnimationFrame(() => {
+                    ticking = false;
+                    onScroll();
+                });
+            },
+            { passive: true }
+        );
+
+		        toggleBtn.addEventListener('click', () => {
+		            const now = window.performance?.now?.() || Date.now();
+		            const next = !collapsed;
+		            ignoreScrollUntil = next ? now + 900 : 0;
+		            setCollapsed(next);
+		        });
+		    })();
+
+    // Inline activity info (no navigation).
+    (() => {
+        const buttons = document.querySelectorAll('[data-activity-info-url]');
+        if (!buttons.length) return;
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target?.closest?.('.activity-summary button[aria-label="Sluiten"]');
+            if (!btn) return;
+            const panel = btn.closest('.activity-summary');
+            if (!panel) return;
+            panel.classList.remove('is-open');
+            const cardId = panel.getAttribute('data-card-id');
+            if (cardId) document.getElementById(cardId)?.classList.remove('has-summary-open');
+        });
+
+        function closeAllExcept(keepId) {
+            document.querySelectorAll('.activity-summary.is-open').forEach((el) => {
+                if (keepId && el.id === keepId) return;
+                el.classList.remove('is-open');
+                const cardId = el.getAttribute('data-card-id');
+                if (cardId) document.getElementById(cardId)?.classList.remove('has-summary-open');
+            });
+        }
+
+        buttons.forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const url = btn.getAttribute('data-activity-info-url');
+                const summaryId = btn.getAttribute('data-activity-summary-id');
+                const cardId = btn.getAttribute('data-activity-card-id');
+                if (!url || !summaryId) return;
+
+                const panel = document.getElementById(summaryId);
+                if (!panel) return;
+
+                const isOpen = panel.classList.contains('is-open');
+                if (isOpen) {
+                    panel.classList.remove('is-open');
+                    if (cardId) document.getElementById(cardId)?.classList.remove('has-summary-open');
+                    return;
+                }
+
+                closeAllExcept(summaryId);
+                if (cardId) document.getElementById(cardId)?.classList.add('has-summary-open');
+
+                if (panel.getAttribute('data-loaded') !== '1') {
+                    panel.innerHTML = '<div class="activity-summary-loading">Laden…</div>';
+                    try {
+                        const current = window.location.pathname + window.location.search;
+                        const params = new URLSearchParams(window.location.search || '');
+                        const tab = params.get('tab') || '';
+                        const fullUrl =
+                            url +
+                            (url.includes('?') ? '&' : '?') +
+                            'return_to=' +
+                            encodeURIComponent(current) +
+                            (tab ? '&tab=' + encodeURIComponent(tab) : '');
+                        const resp = await fetch(fullUrl, { credentials: 'same-origin' });
+                        if (!resp.ok) throw new Error(String(resp.status));
+                        panel.innerHTML = await resp.text();
+                        panel.setAttribute('data-loaded', '1');
+                    } catch (_) {
+                        panel.innerHTML =
+                            '<div class="activity-summary-loading">Kon info niet laden.</div>';
+                    }
+                }
+
+                panel.classList.add('is-open');
+            });
+        });
+    })();
+</script>
+{% endblock %}

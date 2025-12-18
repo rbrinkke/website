@@ -1,0 +1,11 @@
+pub mod activities_service;
+pub mod activity_detail_service;
+pub mod activity_geo_service;
+pub mod activity_summary_service;
+pub mod chat_api_service;
+pub mod chat_inbox_service;
+pub mod discovery_service;
+pub mod friendship_service;
+pub mod location_service;
+pub mod user_service;
+pub mod user_summary_service;

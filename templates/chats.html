@@ -1,0 +1,193 @@
+{% extends "layout.html" %}
+
+{% block title %}Chats - GoAmet{% endblock %}
+
+{% block content %}
+<style>
+    body,
+    .app-container {
+        background: #0b1220 !important;
+    }
+
+    /* Hard fallback: keep chats in phone-like layout even if mobile.css fails to load */
+    body {
+        display: flex;
+        justify-content: center;
+        min-height: 100vh;
+    }
+    .app-container {
+        width: 100%;
+        max-width: 420px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-list {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    .chat-card {
+        display: block !important;
+        width: 100% !important;
+    }
+</style>
+<div class="min-h-screen bg-goamet-navy">
+    <div class="pointer-events-none fixed inset-0">
+        <div class="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-goamet-blue/10 blur-3xl"></div>
+        <div class="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-goamet-pink/10 blur-3xl"></div>
+    </div>
+
+    <header class="sticky top-0 z-50" style="background:#0B1220; border-bottom: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 26px rgba(0,0,0,0.30);">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="relative h-8 w-8 rounded-2xl bg-gradient-to-br from-goamet-blue to-goamet-blue/60 shadow-sm">
+                    <div class="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-goamet-pink shadow"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-white font-extrabold">G</div>
+                </div>
+                <div>
+                    <div class="text-sm font-black tracking-wide text-white">Chats</div>
+                    <div class="text-[11px] font-semibold text-white/55">Offline inbox · build {{ build_id }}</div>
+                </div>
+            </div>
+
+            <a
+                href="/chats"
+                class="inline-flex items-center justify-center rounded-2xl h-11 w-11 bg-goamet-navy border border-white/15 shadow-sm text-white"
+                title="Herlaad"
+                aria-label="Herlaad"
+            >
+                ↺
+            </a>
+        </div>
+    </header>
+
+    <main class="px-4 pb-28 pt-4 max-w-xl mx-auto">
+        {% if conversations.len() == 0 %}
+            <div class="rounded-[28px] bg-goamet-navy shadow-glow border border-white/10 p-5 text-white/80">
+                <div class="text-sm font-extrabold text-white">Nog geen chats</div>
+                <div class="mt-1 text-[12px] font-semibold text-white/55">
+                    Zodra de sync klaar is verschijnen hier je activity-chats en privé chats.
+                </div>
+            </div>
+	        {% else %}
+	            <div class="chat-list">
+	                {% for item in conversations %}
+	                    <a href="/chats/{{ item.conversation.conversation_id }}" class="block chat-card transition focus:outline-none focus:ring-2 focus:ring-goamet-blue/50" title="Open chat">
+	                        <div class="chat-card-inner flex items-center gap-3 px-4 py-4 relative z-10">
+	                            {% set display_title = item.conversation.title.clone().unwrap_or("Chat".to_string()) %}
+	                            <div class="chat-avatar relative h-12 w-12 rounded-2xl overflow-hidden bg-white/5 shrink-0">
+	                                {% if item.conversation.image_asset_id.is_some() %}
+	                                    <img
+	                                        src="/images/{{ item.conversation.image_asset_id.clone().unwrap() }}"
+	                                        alt="{{ display_title }}"
+	                                        class="h-full w-full object-cover"
+	                                        onerror="this.src='/assets/placeholder.svg'"
+	                                        loading="lazy"
+	                                    >
+	                                {% else if item.conversation.other_user_photo_asset_id.is_some() %}
+	                                    <img
+	                                        src="/images/{{ item.conversation.other_user_photo_asset_id.clone().unwrap() }}"
+	                                        alt="{{ display_title }}"
+	                                        class="h-full w-full object-cover"
+	                                        onerror="this.src='/assets/placeholder.svg'"
+	                                        loading="lazy"
+	                                    >
+	                                {% else %}
+	                                    <div class="h-full w-full flex items-center justify-center text-white/70 font-black">
+	                                        {% if item.conversation.chat_context == "activity" %}🎉{% else %}💬{% endif %}
+	                                    </div>
+	                                {% endif %}
+	
+	                                {% if item.conversation.relationship_status == "pending" %}
+	                                    <div class="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-goamet-pink text-white text-[10px] font-black grid place-items-center shadow">!</div>
+	                                {% endif %}
+	                            </div>
+	
+	                            <div class="min-w-0 flex-1">
+	                                <div class="chat-title-row flex items-center justify-between gap-2">
+	                                    <div class="min-w-0 flex items-center gap-2">
+	                                        <span class="chat-dot {% if item.conversation.chat_context == "activity" %}is-activity{% else %}is-dm{% endif %}"></span>
+	                                        <div class="min-w-0 text-[14px] font-black text-white truncate">
+	                                            {{ display_title }}
+	                                        </div>
+	                                    </div>
+	                                    <div class="chat-right-meta shrink-0 flex items-center gap-2">
+	                                        <div class="text-[10px] font-black text-white/45 text-right tabular-nums">
+	                                        {% if item.last_message_at.is_some() %}
+	                                            {{ item.last_message_at.as_ref().unwrap() }}
+	                                        {% endif %}
+	                                        </div>
+	                                        <div class="chat-chevron" aria-hidden="true">›</div>
+	                                    </div>
+	                                </div>
+	
+	                                <div class="mt-0.5 flex items-center justify-between gap-2">
+	                                    <div class="min-w-0 text-[12px] font-semibold text-white/55 truncate">
+	                                        {% if item.last_message_preview.is_some() %}
+	                                            {{ item.last_message_preview.as_ref().unwrap() }}
+	                                        {% else %}
+	                                            {% if item.conversation.subtitle.is_some() %}
+	                                                {{ item.conversation.subtitle.clone().unwrap() }}
+	                                            {% else %}
+	                                                {% if item.conversation.chat_context == "activity" %}
+	                                                    Activiteit chat
+	                                                {% else %}
+	                                                    Privé chat
+	                                                {% endif %}
+	                                            {% endif %}
+	                                        {% endif %}
+	                                    </div>
+	                                </div>
+	
+	                                <div class="mt-2 flex flex-wrap items-center gap-1 text-[11px] font-extrabold text-white/60">
+	                                    {% if item.conversation.relationship_status == "pending" %}
+	                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-goamet-pink/15 text-goamet-pink border border-goamet-pink/25">Chatverzoek</span>
+	                                    {% endif %}
+	                                    {% if item.conversation.mute_expires_at.is_some() %}
+	                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-white/5 text-white/70 border border-white/10">⏳ muted</span>
+	                                    {% endif %}
+	                                    {% if item.conversation.chat_context == "activity" %}
+	                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-goamet-blue/15 text-goamet-blue border border-goamet-blue/25">Activity</span>
+	                                    {% else %}
+	                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-white/5 text-white/70 border border-white/10">DM</span>
+	                                    {% endif %}
+	                                    {% if item.conversation.effective_mask.unwrap_or(0) >= 2 %}
+	                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-goamet-blue/10 border border-goamet-blue/20 text-white/75">✓ kan sturen</span>
+	                                    {% else %}
+	                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-white/5 border border-white/10 text-white/55">read-only</span>
+	                                    {% endif %}
+	                                    {% if item.conversation.relationship_status == "rejected" %}
+	                                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-1 bg-white/5 border border-white/10 text-white/55">⛔ geweigerd</span>
+	                                    {% endif %}
+	                                </div>
+	                            </div>
+	                        </div>
+	                    </a>
+	                {% endfor %}
+	            </div>
+	        {% endif %}
+	    </main>
+
+    <nav class="bottom-nav backdrop-blur" style="background: rgba(11,18,32,0.92); border-top: 1px solid rgba(255,255,255,0.10);">
+        <a href="/discovery" class="nav-item" style="color: rgba(255,255,255,0.70);">
+            <div class="nav-icon-container">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+            </div>
+            <span>Discovery</span>
+        </a>
+        <a href="/activities" class="nav-item" style="color: rgba(255,255,255,0.70);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>Activiteiten</span>
+        </a>
+        <a href="/chats" class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span>Chats</span>
+        </a>
+        <a href="#" class="nav-item" style="color: rgba(255,255,255,0.70);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <span>Notifications</span>
+        </a>
+    </nav>
+</div>
+{% endblock %}
