@@ -1,0 +1,245 @@
+/* ==========================================================================
+   CHAT STYLES - GoAmet Website
+   Consolidated from templates/chats.html and templates/chat_detail.html
+
+   P4.1: CSS consolidation for maintainability
+   - Single source of truth for all chat-related styles
+   - Consistent values (no more blur 10px vs 15px discrepancies)
+   - Includes shadows that were missing from inline styles
+   ========================================================================== */
+
+/* Background override for chat pages */
+body.chat-page,
+body.chat-page .app-container {
+    background: #0b1220 !important;
+}
+
+/* Glass morphism - consistent blur value */
+.glass-morphism {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Chat header variant (bottom border instead of all borders) */
+.glass-morphism-header {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ==========================================================================
+   Chat Bubbles
+   ========================================================================== */
+
+/* Chat bubble - sender (me) */
+.chat-bubble-me {
+    background: linear-gradient(135deg, rgba(13, 71, 161, 0.35) 0%, rgba(13, 71, 161, 0.20) 100%);
+    border: 1px solid rgba(13, 71, 161, 0.45);
+    color: white;
+    border-radius: 22px 22px 4px 22px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Chat bubble - receiver (them) */
+.chat-bubble-them {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: white;
+    border-radius: 22px 22px 22px 4px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   Chat List (chats.html)
+   ========================================================================== */
+
+/* Unread indicator dot */
+.unread-dot {
+    width: 10px;
+    height: 10px;
+    background: #ff3b30;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(255, 59, 48, 0.6);
+}
+
+/* Active chat item in list */
+.chat-item-active {
+    background: rgba(13, 71, 161, 0.15);
+    border-left: 3px solid #0D47A1;
+}
+
+/* ==========================================================================
+   Chat Detail (chat_detail.html)
+   ========================================================================== */
+
+/* Composer container */
+.composer-container {
+    background: rgba(11, 18, 32, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Messages list scroll behavior */
+#chat-messages-list {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+#chat-messages-list::-webkit-scrollbar {
+    display: none;
+}
+
+/* ==========================================================================
+   Reactions
+   ========================================================================== */
+
+.reaction-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    font-size: 11px;
+    transition: background-color 0.15s;
+    cursor: pointer;
+    border: none;
+}
+
+.reaction-pill:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.reaction-pill:active {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* ==========================================================================
+   Polls
+   ========================================================================== */
+
+.poll-container {
+    margin-top: 12px;
+}
+
+.poll-option-btn {
+    width: 100%;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: border-color 0.15s;
+}
+
+.poll-option-btn:hover {
+    border-color: rgba(13, 71, 161, 0.3);
+}
+
+.poll-option-btn:active {
+    transform: scale(0.99);
+}
+
+/* ==========================================================================
+   Action Menu (Bottom Sheet)
+   ========================================================================== */
+
+.action-trigger {
+    padding: 8px;
+    margin: -8px;
+    border-radius: 9999px;
+    transition: background-color 0.15s;
+    touch-action: manipulation;
+}
+
+.action-trigger:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.action-trigger:active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================================================
+   Offline Banner
+   ========================================================================== */
+
+#offline-banner {
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================================================
+   New Messages Pill
+   ========================================================================== */
+
+#new-messages-pill {
+    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+}
+
+#new-messages-pill.hidden {
+    display: none;
+}
+
+/* ==========================================================================
+   Schedule Modal
+   ========================================================================== */
+
+#schedule-overlay input[type="datetime-local"] {
+    color-scheme: dark;
+}
+
+#schedule-overlay input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   Safe Area Support (iOS)
+   ========================================================================== */
+
+.safe-area-inset-bottom {
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+.safe-area-inset-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+/* ==========================================================================
+   Mobile Optimizations
+   ========================================================================== */
+
+@supports (height: 100dvh) {
+    .chat-page .min-h-screen {
+        min-height: 100dvh;
+    }
+}
+
+/* Prevent text selection on interactive elements */
+.reaction-pill,
+.action-trigger,
+.poll-option-btn {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Ensure touch targets are large enough (44x44 minimum) */
+@media (pointer: coarse) {
+    .action-trigger {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}

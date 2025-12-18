@@ -657,6 +657,64 @@ body {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
 }
 
+/* Best-in-class Chat UI */
+.chat-bubble-me {
+    background: linear-gradient(135deg, rgba(13, 71, 161, 0.35) 0%, rgba(13, 71, 161, 0.20) 100%);
+    border: 1px solid rgba(13, 71, 161, 0.45);
+    color: white;
+    border-radius: 22px 22px 4px 22px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.chat-bubble-them {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: white;
+    border-radius: 22px 22px 22px 4px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.reaction-pill {
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reaction-pill:active {
+    transform: scale(0.92);
+}
+
+/* Keyboard Viewport Fix */
+@supports (height: 100dvh) {
+    .min-h-screen {
+        height: 100dvh;
+    }
+}
+
+#chat-messages-list {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbar but keep functionality */
+#chat-messages-list::-webkit-scrollbar {
+    display: none;
+}
+
+.animate-in {
+    animation-duration: 0.3s;
+    animation-fill-mode: both;
+}
+
+@keyframes slideInUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up {
+    animation-name: slideInUp;
+}
+
 @media (max-width: 380px) {
     .activity-participants-tile {
         height: 64px;

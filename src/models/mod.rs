@@ -1,8 +1,7 @@
 #[allow(dead_code)]
 pub mod activities;
-#[allow(dead_code)]
 pub mod activity_participants;
-#[allow(dead_code)]
+pub mod chat_api_models;
 pub mod chat_conversations;
 pub mod current_user;
 pub mod discovery_user;

@@ -52,6 +52,38 @@ async fn main() {
             get(chat_api::list_messages_handler).post(chat_api::send_message_handler),
         )
         .route(
+            "/api/chat/conversations/:conversation_id/messages/:message_id/reactions",
+            post(chat_api::add_reaction_handler),
+        )
+        .route(
+            "/api/chat/conversations/:conversation_id/messages/:message_id/reactions/:emoji",
+            axum::routing::delete(chat_api::remove_reaction_handler),
+        )
+        .route(
+            "/api/chat/conversations/:conversation_id/messages/:message_id/polls",
+            post(chat_api::create_poll_handler),
+        )
+        .route(
+            "/api/chat/conversations/:conversation_id/polls/:poll_id/vote",
+            post(chat_api::vote_poll_handler),
+        )
+        .route(
+            "/api/chat/conversations/:conversation_id/messages/:message_id/pin",
+            post(chat_api::pin_message_handler).delete(chat_api::unpin_message_handler),
+        )
+        .route(
+            "/api/chat/conversations/:conversation_id/messages/:message_id/reply",
+            post(chat_api::reply_to_message_handler),
+        )
+        .route(
+            "/api/chat/conversations/:conversation_id/scheduled",
+            post(chat_api::schedule_message_handler),
+        )
+        .route(
+            "/api/chat/conversations/:conversation_id/unread",
+            get(chat_api::get_unread_count_handler),
+        )
+        .route(
             "/activities/:activity_id",
             get(activity::activity_detail_handler),
         )

@@ -1,6 +1,9 @@
 use axum::http::StatusCode;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use serde::de::DeserializeOwned;
 use serde_json::Value;
+
+use crate::models::chat_api_models::*;
 
 #[derive(Debug, Clone)]
 pub struct ChatApiUpstreamError {
@@ -19,8 +22,6 @@ fn chat_api_base_url() -> String {
 }
 
 fn chat_api_connect_base_url() -> String {
-    // Many dev setups route everything through a single local ingress on 127.0.0.1:8080,
-    // and use the Host header to select the service (auth.localhost, image.localhost, chat.localhost).
     std::env::var("CHAT_API_CONNECT_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string())
 }
 
@@ -47,87 +48,82 @@ fn connect_failed(url: &str, err: impl ToString) -> ChatApiUpstreamError {
     )
 }
 
-pub async fn ws_ticket(token: &str, conversation_id: &str) -> Result<Value, ChatApiUpstreamError> {
+async fn request<T: DeserializeOwned>(
+    method: reqwest::Method,
+    path: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+) -> Result<T, ChatApiUpstreamError> {
     let connect_base = chat_api_connect_base_url();
     let host_header = chat_api_host_header();
-    let url = format!("{}/api/v1/ws-ticket", connect_base.trim_end_matches('/'));
+    let url = format!("{}{}", connect_base.trim_end_matches('/'), path);
 
     let client = reqwest::Client::new();
-    let resp = client
-        .post(&url)
-        .header("Host", host_header)
-        .headers(bearer_headers(token))
-        .json(&serde_json::json!({ "conversation_id": conversation_id }))
-        .send()
-        .await
-        .map_err(|e| connect_failed(&url, e))?;
+    let mut rb = client.request(method, &url).header("Host", host_header);
 
-    let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let body: Value = resp.json().await.map_err(|e| connect_failed(&url, e))?;
+    if let Some(t) = token {
+        rb = rb.headers(bearer_headers(t));
+    }
+
+    if let Some(b) = body {
+        rb = rb.json(&b);
+    }
+
+    let resp = rb.send().await.map_err(|e| connect_failed(&url, e))?;
+    let status = resp.status();
+    let body_val: Value = resp.json().await.map_err(|e| connect_failed(&url, e))?;
+
     if !status.is_success() {
-        return Err(ChatApiUpstreamError::new(status, Some(body)));
+        return Err(ChatApiUpstreamError::new(status, Some(body_val)));
     }
 
-    // Normalize ws_url for the frontend if the api doesn't return it.
-    // Docs say ws_url is included, but older builds returned only ticket+expires_at.
-    if body.get("ws_url").is_some() {
-        return Ok(body);
-    }
-
-    let ticket = body
-        .get("ticket")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default();
-    if ticket.is_empty() {
-        return Ok(body);
-    }
-
-    // Browser must connect to the routed host (not 127.0.0.1), so use CHAT_API_URL by default.
-    let base_url = chat_api_base_url();
-    let ws_base = std::env::var("CHAT_API_WS_URL").ok().unwrap_or_else(|| {
-        if base_url.starts_with("https://") {
-            base_url.replacen("https://", "wss://", 1)
-        } else {
-            base_url.replacen("http://", "ws://", 1)
-        }
-    });
-
-    let ws_url = format!(
-        "{}/api/v1/ws/{}?ticket={}",
-        ws_base.trim_end_matches('/'),
-        conversation_id,
-        ticket
-    );
-    let mut out = body;
-    if let Some(obj) = out.as_object_mut() {
-        obj.insert("ws_url".to_string(), Value::String(ws_url));
-    }
-    Ok(out)
+    serde_json::from_value(body_val).map_err(|e| {
+        ChatApiUpstreamError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Some(serde_json::json!({
+                "error": "deserialization_failed",
+                "detail": e.to_string()
+            })),
+        )
+    })
 }
 
-pub async fn health() -> Result<Value, ChatApiUpstreamError> {
-    let connect_base = chat_api_connect_base_url();
-    let host_header = chat_api_host_header();
-    let url = format!("{}/health", connect_base.trim_end_matches('/'));
+// --- Conversations ---
 
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(&url)
-        .header("Host", host_header)
-        .send()
-        .await
-        .map_err(|e| connect_failed(&url, e))?;
-
-    let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let body: Value = resp
-        .json()
-        .await
-        .unwrap_or_else(|_| serde_json::json!({ "status": status.as_u16() }));
-    if !status.is_success() {
-        return Err(ChatApiUpstreamError::new(status, Some(body)));
+pub async fn list_conversations(
+    token: &str,
+    limit: i64,
+    before: Option<String>,
+) -> Result<ConversationList, ChatApiUpstreamError> {
+    let mut path = format!("/api/v1/conversations?limit={}", limit.clamp(1, 100));
+    if let Some(b) = before {
+        path.push_str(&format!("&before={}", b));
     }
-    Ok(body)
+    request(reqwest::Method::GET, &path, Some(token), None).await
 }
+
+pub async fn create_conversation(
+    token: &str,
+    other_user_id: &str,
+) -> Result<ConversationCreateResult, ChatApiUpstreamError> {
+    request(
+        reqwest::Method::POST,
+        "/api/v1/conversations",
+        Some(token),
+        Some(serde_json::json!({ "other_user_id": other_user_id })),
+    )
+    .await
+}
+
+pub async fn get_unread_count(
+    token: &str,
+    conversation_id: &str,
+) -> Result<UnreadCount, ChatApiUpstreamError> {
+    let path = format!("/api/v1/conversations/{}/unread", conversation_id);
+    request(reqwest::Method::GET, &path, Some(token), None).await
+}
+
+// --- Messages ---
 
 pub async fn list_messages(
     token: &str,
@@ -135,104 +131,306 @@ pub async fn list_messages(
     limit: i64,
     before: Option<String>,
     after: Option<String>,
-) -> Result<Value, ChatApiUpstreamError> {
-    let connect_base = chat_api_connect_base_url();
-    let host_header = chat_api_host_header();
-    let mut url = format!(
-        "{}/api/v1/conversations/{}/messages?limit={}",
-        connect_base.trim_end_matches('/'),
+) -> Result<MessageList, ChatApiUpstreamError> {
+    let mut path = format!(
+        "/api/v1/conversations/{}/messages?limit={}",
         conversation_id,
         limit.clamp(1, 100)
     );
-    if let Some(before) = before {
-        url.push_str(&format!("&before={}", before));
+    if let Some(b) = before {
+        path.push_str(&format!("&before={}", b));
     }
-    if let Some(after) = after {
-        url.push_str(&format!("&after={}", after));
+    if let Some(a) = after {
+        path.push_str(&format!("&after={}", a));
     }
-
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(&url)
-        .header("Host", host_header)
-        .headers(bearer_headers(token))
-        .send()
-        .await
-        .map_err(|e| connect_failed(&url, e))?;
-
-    let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let body: Value = resp.json().await.map_err(|e| connect_failed(&url, e))?;
-    if !status.is_success() {
-        return Err(ChatApiUpstreamError::new(status, Some(body)));
-    }
-    Ok(body)
+    request(reqwest::Method::GET, &path, Some(token), None).await
 }
 
 pub async fn send_message(
     token: &str,
     conversation_id: &str,
     content: String,
-) -> Result<Value, ChatApiUpstreamError> {
-    let connect_base = chat_api_connect_base_url();
-    let host_header = chat_api_host_header();
-    let url = format!(
-        "{}/api/v1/conversations/{}/messages",
-        connect_base.trim_end_matches('/'),
-        conversation_id
-    );
-
-    let client = reqwest::Client::new();
-    let resp = client
-        .post(&url)
-        .header("Host", host_header)
-        .headers(bearer_headers(token))
-        .json(&serde_json::json!({
+) -> Result<Message, ChatApiUpstreamError> {
+    let path = format!("/api/v1/conversations/{}/messages", conversation_id);
+    request(
+        reqwest::Method::POST,
+        &path,
+        Some(token),
+        Some(serde_json::json!({
             "content": content,
-            "message_type": "text",
-            "metadata": {}
-        }))
-        .send()
-        .await
-        .map_err(|e| connect_failed(&url, e))?;
-
-    let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let body: Value = resp.json().await.map_err(|e| connect_failed(&url, e))?;
-    if !status.is_success() {
-        return Err(ChatApiUpstreamError::new(status, Some(body)));
-    }
-    Ok(body)
+            "message_type": "text"
+        })),
+    )
+    .await
 }
 
-pub async fn list_conversations(
+pub async fn get_message(
     token: &str,
-    limit: i64,
-    before: Option<String>,
-) -> Result<Value, ChatApiUpstreamError> {
-    let connect_base = chat_api_connect_base_url();
-    let host_header = chat_api_host_header();
-
-    let mut url = format!(
-        "{}/api/v1/conversations?limit={}",
-        connect_base.trim_end_matches('/'),
-        limit.clamp(1, 50)
+    conversation_id: &str,
+    message_id: &str,
+) -> Result<Message, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}",
+        conversation_id, message_id
     );
-    if let Some(before) = before {
-        url.push_str(&format!("&before={}", before));
-    }
+    request(reqwest::Method::GET, &path, Some(token), None).await
+}
 
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(&url)
-        .header("Host", host_header)
-        .headers(bearer_headers(token))
-        .send()
-        .await
-        .map_err(|e| connect_failed(&url, e))?;
+pub async fn edit_message(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+    content: String,
+) -> Result<Message, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}",
+        conversation_id, message_id
+    );
+    request(
+        reqwest::Method::PUT,
+        &path,
+        Some(token),
+        Some(serde_json::json!({ "content": content })),
+    )
+    .await
+}
 
-    let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let body: Value = resp.json().await.map_err(|e| connect_failed(&url, e))?;
-    if !status.is_success() {
-        return Err(ChatApiUpstreamError::new(status, Some(body)));
+pub async fn delete_message(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+) -> Result<StatusConfirmation, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}",
+        conversation_id, message_id
+    );
+    request(reqwest::Method::DELETE, &path, Some(token), None).await
+}
+
+pub async fn search_messages(
+    token: &str,
+    conversation_id: &str,
+    query: &str,
+) -> Result<SearchResult, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/search?query={}",
+        conversation_id, query
+    );
+    request(reqwest::Method::GET, &path, Some(token), None).await
+}
+
+// --- Interactions ---
+
+pub async fn add_reaction(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+    emoji: &str,
+) -> Result<StatusConfirmation, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/reactions",
+        conversation_id, message_id
+    );
+    request(
+        reqwest::Method::POST,
+        &path,
+        Some(token),
+        Some(serde_json::json!({ "emoji": emoji })),
+    )
+    .await
+}
+
+pub async fn remove_reaction(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+    emoji: &str,
+) -> Result<StatusConfirmation, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/reactions/{}",
+        conversation_id, message_id, emoji
+    );
+    request(reqwest::Method::DELETE, &path, Some(token), None).await
+}
+
+pub async fn get_reactions(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+) -> Result<ReactionCounts, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/reactions",
+        conversation_id, message_id
+    );
+    request(reqwest::Method::GET, &path, Some(token), None).await
+}
+
+pub async fn reply_to_message(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+    content: String,
+) -> Result<Message, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/reply",
+        conversation_id, message_id
+    );
+    request(
+        reqwest::Method::POST,
+        &path,
+        Some(token),
+        Some(serde_json::json!({ "content": content })),
+    )
+    .await
+}
+
+pub async fn mark_as_seen(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+) -> Result<StatusConfirmation, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/seen",
+        conversation_id, message_id
+    );
+    request(reqwest::Method::POST, &path, Some(token), None).await
+}
+
+// --- Features ---
+
+pub async fn pin_message(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+) -> Result<Message, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/pin",
+        conversation_id, message_id
+    );
+    request(reqwest::Method::POST, &path, Some(token), None).await
+}
+
+pub async fn unpin_message(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+) -> Result<StatusConfirmation, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/pin",
+        conversation_id, message_id
+    );
+    request(reqwest::Method::DELETE, &path, Some(token), None).await
+}
+
+pub async fn get_pinned_messages(
+    token: &str,
+    conversation_id: &str,
+) -> Result<MessageList, ChatApiUpstreamError> {
+    let path = format!("/api/v1/conversations/{}/pinned", conversation_id);
+    request(reqwest::Method::GET, &path, Some(token), None).await
+}
+
+pub async fn create_poll(
+    token: &str,
+    conversation_id: &str,
+    message_id: &str,
+    question: &str,
+    options: Vec<String>,
+) -> Result<Poll, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/messages/{}/polls",
+        conversation_id, message_id
+    );
+    request(
+        reqwest::Method::POST,
+        &path,
+        Some(token),
+        Some(serde_json::json!({
+            "question": question,
+            "options": options
+        })),
+    )
+    .await
+}
+
+pub async fn vote_on_poll(
+    token: &str,
+    conversation_id: &str,
+    poll_id: &str,
+    option_id: &str,
+) -> Result<StatusConfirmation, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/polls/{}/vote",
+        conversation_id, poll_id
+    );
+    request(
+        reqwest::Method::POST,
+        &path,
+        Some(token),
+        Some(serde_json::json!({ "option_id": option_id })),
+    )
+    .await
+}
+
+pub async fn schedule_message(
+    token: &str,
+    conversation_id: &str,
+    content: String,
+    scheduled_for: String,
+) -> Result<ScheduledMessage, ChatApiUpstreamError> {
+    let path = format!("/api/v1/conversations/{}/scheduled", conversation_id);
+    request(
+        reqwest::Method::POST,
+        &path,
+        Some(token),
+        Some(serde_json::json!({
+            "content": content,
+            "scheduled_for": scheduled_for
+        })),
+    )
+    .await
+}
+
+pub async fn get_thread(
+    token: &str,
+    conversation_id: &str,
+    thread_id: &str,
+) -> Result<ThreadResponse, ChatApiUpstreamError> {
+    let path = format!(
+        "/api/v1/conversations/{}/threads/{}",
+        conversation_id, thread_id
+    );
+    request(reqwest::Method::GET, &path, Some(token), None).await
+}
+
+// --- Realtime ---
+
+pub async fn ws_ticket(
+    token: &str,
+    conversation_id: &str,
+) -> Result<WsTicketResponse, ChatApiUpstreamError> {
+    let path = "/api/v1/ws-ticket";
+    let body = serde_json::json!({ "conversation_id": conversation_id });
+    let mut res: WsTicketResponse =
+        request(reqwest::Method::POST, path, Some(token), Some(body)).await?;
+
+    if res.ws_url.is_none() {
+        let base_url = chat_api_base_url();
+        let ws_base = if base_url.starts_with("https://") {
+            base_url.replacen("https://", "wss://", 1)
+        } else {
+            base_url.replacen("http://", "ws://", 1)
+        };
+        res.ws_url = Some(format!(
+            "{}/api/v1/ws/{}?ticket={}",
+            ws_base.trim_end_matches('/'),
+            conversation_id,
+            res.ticket
+        ));
     }
-    Ok(body)
+    Ok(res)
+}
+
+pub async fn health() -> Result<Value, ChatApiUpstreamError> {
+    request(reqwest::Method::GET, "/health", None, None).await
 }
